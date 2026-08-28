@@ -9,13 +9,7 @@ from pathlib import Path
 from llama_cpp import Llama, LlamaTokenizer
 
 ROOT_PATH = Path(__file__).parent
-ENV_PATH = ROOT_PATH / '.env'
-MODEL_PATH = (
-    ROOT_PATH
-    / 'model'
-    / 'Llama'
-    / 'Meta-Llama-3-8B-Instruct-Q3_K_M.gguf'
-)
+MODEL_PATH = (ROOT_PATH / 'ai' / 'Meta-Llama-3-8B-Instruct-Q3_K_M.gguf')
 
 N_THREADS = 4
 N_GPU_LAYERS = 16
