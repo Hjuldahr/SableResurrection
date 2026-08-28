@@ -52,7 +52,6 @@ class Embedder(Protocol):
     def embed(self, text: str) -> Sequence[float]:
         ...
 
-
 # ---------------------------------------------------------------------------
 # Memory types
 # ---------------------------------------------------------------------------
@@ -213,14 +212,26 @@ class MemoryStore:
         embedder: Embedder,
         *,
         client: QdrantClient | None = None,
-        path: str = "./data/qdrant",
+        path: str | Path = "./data/qdrant",
         collection: str = "sable_memory",
         distance: Distance = Distance.COSINE,
     ) -> None:
-        Path(path).mkdir(parents=True, exist_ok=True)
+        """Initialize the MemoryStore
+
+        Args:
+            embedder (Embedder): Vector embedding protocol
+            client (QdrantClient | None, optional): Qdrant client to use. If omitted, a persistent local client is created using `path`.
+            path (str, optional): Directory used by the default local Qdrant client. Defaults to "./data/qdrant".
+            collection (str, optional): The DB Collection label. Defaults to "sable_memory".
+            distance (Distance, optional): The Vector Heuristic. Defaults to Distance.COSINE.
+        """
+        if client is None:
+            Path(path).mkdir(parents=True, exist_ok=True)
+            self.client = QdrantClient(path=path)
+        else:
+            self.client = client
 
         self.embedder = embedder
-        self.client = client or QdrantClient(path=path)
         self.collection = collection
 
         self._ensure_collection(distance)
