@@ -1,8 +1,11 @@
+# What changes are needed for persistance or will this already save data?
+
 from __future__ import annotations
 
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from enum import StrEnum
+from pathlib import Path
 from typing import Any, Iterable, Protocol, Sequence
 from uuid import UUID, uuid4
 
@@ -14,8 +17,6 @@ from qdrant_client.models import (
     MatchAny,
     MatchValue,
     PointStruct,
-    QueryResponse,
-    SearchMatrixOffsetsResponse,
     VectorParams,
 )
 
@@ -212,11 +213,14 @@ class MemoryStore:
         embedder: Embedder,
         *,
         client: QdrantClient | None = None,
+        path: str = "./data/qdrant",
         collection: str = "sable_memory",
         distance: Distance = Distance.COSINE,
     ) -> None:
+        Path(path).mkdir(parents=True, exist_ok=True)
+
         self.embedder = embedder
-        self.client = client or QdrantClient(":memory:")
+        self.client = client or QdrantClient(path=path)
         self.collection = collection
 
         self._ensure_collection(distance)
