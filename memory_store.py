@@ -14,6 +14,8 @@ from qdrant_client.models import (
     MatchAny,
     MatchValue,
     PointStruct,
+    QueryResponse,
+    SearchMatrixOffsetsResponse,
     VectorParams,
 )
 
@@ -580,19 +582,19 @@ class MemoryStore:
             memory_types,
         )
 
-        hits = self.client.search(
+        response = self.client.query_points(
             collection_name=self.collection,
-            query_vector=query_vector,
+            query=query_vector,
             query_filter=combined_filter,
             limit=limit,
             score_threshold=score_threshold,
             with_payload=True,
-            with_vectors=False,
+            with_vectors=False
         )
-
+        
         results: list[MemoryResult] = []
 
-        for hit in hits:
+        for hit in response.points:
             if hit.payload is None:
                 continue
 
@@ -1079,7 +1081,6 @@ def run_tests() -> None:
         test()
 
     print(f"{len(tests)} tests passed.")
-
 
 if __name__ == "__main__":
     run_tests()
