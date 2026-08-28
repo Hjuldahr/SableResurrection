@@ -26,6 +26,7 @@ user_id: int
 channel_id: int
 message_id: int
 text: text
+tokens: int
 embedding: vector
 ```
 
