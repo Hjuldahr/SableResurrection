@@ -15,7 +15,7 @@ python -m pip install -r requirements.txt || exit 1
 python -m pip install "huggingface_hub[cli]" || exit 1
 
 mkdir ai 2>nul
-hf download QuantFactory/Meta-Llama-3-8B-Instruct-GGUF Meta-Llama-3-8B-Instruct.Q3_K_M.gguf --local-dir ".\ai" || exit 1
-ren "ai\Meta-Llama-3-8B-Instruct.Q3_K_M.gguf" "Meta-Llama-3-8B-Instruct-Q3_K_M.gguf"
+hf download QuantFactory/Meta-Llama-3-8B-Instruct-GGUF Meta-Llama-3-8B-Instruct.Q3_K_M.gguf --local-dir ".\ai\llm" || exit 1
+ren "ai\llm\Meta-Llama-3-8B-Instruct.Q3_K_M.gguf" "Meta-Llama-3-8B-Instruct-Q3_K_M.gguf"
 
 endlocal

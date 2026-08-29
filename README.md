@@ -19,7 +19,7 @@ Follow these steps to set up the project environment. 
 #### 1. Prerequisites
 
 * **Python 3.12:** Download and install [Python 3.12 🐍](https://www.python.org/downloads/release/python-31210/). Ensure you check the box to **"Add Python to PATH"** during installation.
-* **LLM File:** Download the [Meta-Llama-3-8B-Instruct-GGUF 🦙](https://huggingface.co/QuantFactory/Meta-Llama-3-8B-Instruct-GGUF) model. Save it to `.\ai\Meta-Llama-3-8B-Instruct-Q3_K_M.gguf`, or replace it with a higher-end quantization if your GPU has more than 3 digits in its name, unlike mine.
+* **LLM File:** Download the [Meta-Llama-3-8B-Instruct-GGUF 🦙](https://huggingface.co/QuantFactory/Meta-Llama-3-8B-Instruct-GGUF) model. Save it to `.\ai\llm\Meta-Llama-3-8B-Instruct-Q3_K_M.gguf`, or replace it with a higher-end quantization if your GPU has more than 3 digits in its name, unlike mine.
 
 #### 2. Clone the Repository
 
