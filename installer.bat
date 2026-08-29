@@ -5,7 +5,7 @@ setlocal
 choco upgrade python312 git -y || exit 1 
 call refreshenv
 
-py -3.12 -m venv .venv
+py -3.12 -m venv .venv || exit 1 
 call .venv\Scripts\activate.bat
 
 python -m pip install --upgrade pip

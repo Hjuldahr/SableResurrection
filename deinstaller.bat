@@ -11,9 +11,7 @@ if exist "%TARGET_DIR%.venv\Scripts\deactivate.bat" (
     call "%TARGET_DIR%.venv\Scripts\deactivate.bat"
 )
 
-set "DELETE_PATH=%TARGET_DIR%"
-
-cd /d %TEMP%
+cd /d "%TEMP%"
 
 start "" /b cmd /c "timeout /t 1 >nul & rmdir /s /q \"%TARGET_DIR%\""
 exit /b
