@@ -15,6 +15,6 @@ python -m pip install --upgrade huggingface_hub || exit 1
 mkdir llm 2>nul
 
 set HF_XET_HIGH_PERFORMANCE=1 
-hf download QuantFactory/Meta-Llama-3-8B-Instruct-GGUF --include "Meta-Llama-3-8B-Instruct.Q3_K_M.gguf" --local-dir ".\llm" || exit 1
+huggingface-cli download QuantFactory/Meta-Llama-3-8B-Instruct-GGUF --include "Meta-Llama-3-8B-Instruct.Q3_K_M.gguf" --local-dir ".\llm" --local-dir-use-symlinks False || exit 1
 
 endlocal
