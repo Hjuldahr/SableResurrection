@@ -4,7 +4,8 @@
 
 **Requires:** Chocolatey for package management and Administrator privileges.
 **Installs:** Python 3.12 & pip, Git & HuggingFace.Git-Xet, project dependencies, and the default LLM model listed below.
-**Note:** This script assumes a fresh installation, but it can tolerate partial states up to a limit. It is not strictly unsafe, but it is a linear, fail-forward, one-shot process. It runs until it either finishes or you press `Ctrl+C`, which may leave the environment in an invalid state depending on when and where you interrupt it.
+**Note:** This script assumes a fresh installation, but it can tolerate partial states up to a limit. 
+It is not strictly unsafe, but it is a linear, fail-forward, one-shot process. It runs until it either finishes or you press `Ctrl+C`, which may leave the environment in an invalid state depending on when and where you interrupt it.
 
 In your terminal of choice.
 ```
@@ -19,7 +20,7 @@ Follow these steps to set up the project environment. 
 #### 1. Prerequisites
 
 * **Python 3.12:** Download and install [Python 3.12 🐍](https://www.python.org/downloads/release/python-31210/). Ensure you check the box to **"Add Python to PATH"** during installation.
-* **LLM File:** Download the [Meta-Llama-3-8B-Instruct-GGUF 🦙](https://huggingface.co/QuantFactory/Meta-Llama-3-8B-Instruct-GGUF) model. Save it to `.\ai\llm\Meta-Llama-3-8B-Instruct-Q3_K_M.gguf`, or replace it with a higher-end quantization if your GPU has more than 3 digits in its name, unlike mine.
+* **LLM File:** Download the [Meta-Llama-3-8B-Instruct-GGUF 🦙](https://huggingface.co/QuantFactory/Meta-Llama-3-8B-Instruct-GGUF) model. Save it to `.\llm\Meta-Llama-3-8B-Instruct-Q3_K_M.gguf`, or replace it with a higher-end quantization if your GPU has more than 3 digits in its name, unlike mine.
 
 #### 2. Clone the Repository
 
