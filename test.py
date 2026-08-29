@@ -253,6 +253,7 @@ def compact_memory(
     if entries_to_compact <= 0:
         return
 
+    # Never was redefined
     SUMMARY_TEXT, consumed = summarize_history(
         llm,
         tokenizer,
