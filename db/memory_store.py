@@ -1,13 +1,9 @@
-# What changes are needed for persistance or will this already save data?
-
 from __future__ import annotations
 
-from dataclasses import dataclass, field
-from datetime import datetime, timezone
-from enum import StrEnum
+from datetime import datetime
 from pathlib import Path
-from typing import Any, Iterable, Protocol, Sequence
-from uuid import UUID, uuid4
+from typing import Any, Iterable
+from uuid import UUID
 
 from qdrant_client import QdrantClient
 from qdrant_client.models import (
@@ -20,168 +16,10 @@ from qdrant_client.models import (
     VectorParams,
 )
 
-# ---------------------------------------------------------------------------
-# Helpers
-# ---------------------------------------------------------------------------
-
-def utcnow() -> datetime:
-    return datetime.now(timezone.utc)
-
-
-def ensure_utc(value: datetime) -> datetime:
-    """Normalize a datetime to UTC."""
-    if value.tzinfo is None:
-        return value.replace(tzinfo=timezone.utc)
-    return value.astimezone(timezone.utc)
-
-
-# ---------------------------------------------------------------------------
-# Embedding interface
-# ---------------------------------------------------------------------------
-
-class Embedder(Protocol):
-    """
-    Minimal interface required by MemoryStore.
-
-    Keeping this as a protocol means the store does not care whether
-    embeddings come from sentence-transformers, llama.cpp, an API, etc.
-    """
-
-    dimension: int
-
-    def embed(self, text: str) -> Sequence[float]:
-        ...
-
-# ---------------------------------------------------------------------------
-# Memory types
-# ---------------------------------------------------------------------------
-
-class MemoryType(StrEnum):
-    RAW_CONVERSATION = "raw_conversation"
-    TOPIC_FACT = "topic_fact"
-    USER_FACT = "user_fact"
-    OPINION = "opinion"
-    PREFERENCE = "preference"
-
-
-class SourceType(StrEnum):
-    USER_REQUESTED = "user_requested"
-    OBSERVATION = "observation"
-    WEB_LOOKUP = "web_lookup"
-
-
-class SubjectType(StrEnum):
-    USER = "user"
-    TOPIC = "topic"
-
-
-# ---------------------------------------------------------------------------
-# Typed memory schemas
-# ---------------------------------------------------------------------------
-
-@dataclass(slots=True)
-class RawConversation:
-    timestamp: datetime
-    user_id: int
-    channel_id: int
-    message_id: int
-    text: str
-    tokens: int
-    id: UUID = field(default_factory=uuid4)
-
-    @property
-    def memory_type(self) -> MemoryType:
-        return MemoryType.RAW_CONVERSATION
-
-
-@dataclass(slots=True)
-class TopicFact:
-    source_type: SourceType
-    source_message_id: int | None
-
-    topic_id: int | None
-
-    created: datetime
-    last_referenced: datetime
-
-    fact: str
-    id: UUID = field(default_factory=uuid4)
-
-    @property
-    def memory_type(self) -> MemoryType:
-        return MemoryType.TOPIC_FACT
-
-
-@dataclass(slots=True)
-class UserFact:
-    user_id: int
-
-    created: datetime
-    last_referenced: datetime
-
-    confidence: float
-
-    fact: str
-    source_message_id: int | None
-
-    id: UUID = field(default_factory=uuid4)
-
-    @property
-    def memory_type(self) -> MemoryType:
-        return MemoryType.USER_FACT
-
-
-@dataclass(slots=True)
-class Opinion:
-    subject_type: SubjectType
-    subject_id: int
-
-    created: datetime
-    last_referenced: datetime
-
-    strength: float
-
-    opinion: str
-    id: UUID = field(default_factory=uuid4)
-
-    @property
-    def memory_type(self) -> MemoryType:
-        return MemoryType.OPINION
-
-
-@dataclass(slots=True)
-class Preference:
-    created: datetime
-    last_referenced: datetime
-
-    preference: str
-    strength: float
-
-    id: UUID = field(default_factory=uuid4)
-
-    @property
-    def memory_type(self) -> MemoryType:
-        return MemoryType.PREFERENCE
-
-
-Memory = (
-    RawConversation
-    | TopicFact
-    | UserFact
-    | Opinion
-    | Preference
-)
-
-
-# ---------------------------------------------------------------------------
-# Search result
-# ---------------------------------------------------------------------------
-
-@dataclass(slots=True, frozen=True)
-class MemoryResult:
-    memory: Memory
-    score: float
-
+from db.dto import DTOTypes, MemoryResult, Opinion, Preference, RawConversation, TopicFact, UserFact
+from db.embedder import Embedder
+from db.types import MemoryType, SourceType, SubjectType
+from db.utc import ensure_utc, utcnow
 
 # ---------------------------------------------------------------------------
 # MemoryStore
@@ -264,7 +102,7 @@ class MemoryStore:
     def _parse_datetime(value: str) -> datetime:
         return datetime.fromisoformat(value)
 
-    def _payload(self, memory: Memory) -> dict[str, Any]:
+    def _payload(self, memory: DTOTypes) -> dict[str, Any]:
         if isinstance(memory, RawConversation):
             return {
                 "memory_type": memory.memory_type.value,
@@ -324,7 +162,7 @@ class MemoryStore:
         self,
         point_id: str | int,
         payload: dict[str, Any],
-    ) -> Memory:
+    ) -> DTOTypes:
         memory_type = MemoryType(payload["memory_type"])
         memory_id = UUID(str(point_id))
 
@@ -407,7 +245,7 @@ class MemoryStore:
     # Low-level CRUD
     # ------------------------------------------------------------------
 
-    def add(self, memory: Memory) -> UUID:
+    def add(self, memory: DTOTypes) -> UUID:
         """
         Insert a memory.
 
@@ -434,7 +272,7 @@ class MemoryStore:
 
         return memory.id
 
-    def add_many(self, memories: Iterable[Memory]) -> list[UUID]:
+    def add_many(self, memories: Iterable[DTOTypes]) -> list[UUID]:
         memories = list(memories)
 
         if not memories:
@@ -466,7 +304,7 @@ class MemoryStore:
 
         return [memory.id for memory in memories]
 
-    def get(self, memory_id: UUID) -> Memory | None:
+    def get(self, memory_id: UUID) -> DTOTypes | None:
         points = self.client.retrieve(
             collection_name=self.collection,
             ids=[str(memory_id)],
@@ -499,7 +337,7 @@ class MemoryStore:
 
     def update(
         self,
-        memory: Memory,
+        memory: DTOTypes,
         *,
         reembed: bool = True,
     ) -> UUID:
@@ -802,7 +640,7 @@ class MemoryStore:
     # ------------------------------------------------------------------
 
     @staticmethod
-    def _text(memory: Memory) -> str:
+    def _text(memory: DTOTypes) -> str:
         """
         Return the semantic text represented by a memory.
 
@@ -826,276 +664,3 @@ class MemoryStore:
             return memory.preference
 
         raise TypeError(f"Unsupported memory type: {type(memory)!r}")
-
-
-# ---------------------------------------------------------------------------
-# Example deterministic embedder for testing
-# ---------------------------------------------------------------------------
-
-class FakeEmbedder:
-    """
-    Tiny deterministic embedder.
-
-    This is NOT intended for real semantic retrieval.
-
-    It exists so the entire MemoryStore can be tested without downloading
-    a model or contacting an external service.
-    """
-
-    dimension = 8
-
-    def embed(self, text: str) -> Sequence[float]:
-        vector = [0.0] * self.dimension
-
-        for index, character in enumerate(text.encode("utf-8")):
-            vector[index % self.dimension] += character
-
-        magnitude = sum(value * value for value in vector) ** 0.5
-
-        if magnitude == 0:
-            return vector
-
-        return [
-            value / magnitude
-            for value in vector
-        ]
-
-
-# ---------------------------------------------------------------------------
-# Self-contained tests
-# ---------------------------------------------------------------------------
-
-def test_raw_conversation() -> None:
-    store = MemoryStore(
-        FakeEmbedder(),
-        client=QdrantClient(":memory:"),
-    )
-
-    timestamp = datetime(
-        2026,
-        8,
-        27,
-        22,
-        54,
-        tzinfo=timezone.utc,
-    )
-
-    memory = RawConversation(
-        timestamp=timestamp,
-        user_id=123,
-        channel_id=456,
-        message_id=789,
-        text="I've been experimenting with Qdrant.",
-        tokens=7,
-    )
-
-    memory_id = store.add(memory)
-
-    loaded = store.get(memory_id)
-
-    assert loaded == memory
-    assert isinstance(loaded, RawConversation)
-
-
-def test_user_fact_filter() -> None:
-    store = MemoryStore(
-        FakeEmbedder(),
-        client=QdrantClient(":memory:"),
-    )
-
-    now = utcnow()
-
-    wanted = UserFact(
-        user_id=123,
-        created=now,
-        last_referenced=now,
-        confidence=0.9,
-        fact="The user enjoys digital painting.",
-        source_message_id=100,
-    )
-
-    other_user = UserFact(
-        user_id=999,
-        created=now,
-        last_referenced=now,
-        confidence=0.9,
-        fact="The user enjoys digital painting.",
-        source_message_id=200,
-    )
-
-    store.add_many([
-        wanted,
-        other_user,
-    ])
-
-    results = store.search_user_facts(
-        "What hobby does the user enjoy?",
-        user_id=123,
-    )
-
-    assert len(results) == 1
-    assert results[0].memory.id == wanted.id
-
-
-def test_memory_type_filter() -> None:
-    store = MemoryStore(
-        FakeEmbedder(),
-        client=QdrantClient(":memory:"),
-    )
-
-    now = utcnow()
-
-    topic_fact = TopicFact(
-        source_type=SourceType.OBSERVATION,
-        source_message_id=123,
-        topic_id=42,
-        created=now,
-        last_referenced=now,
-        fact="Python uses significant indentation.",
-    )
-
-    opinion = Opinion(
-        subject_type=SubjectType.TOPIC,
-        subject_id=42,
-        created=now,
-        last_referenced=now,
-        strength=0.8,
-        opinion="Python has an elegant syntax.",
-    )
-
-    store.add_many([
-        topic_fact,
-        opinion,
-    ])
-
-    results = store.search(
-        "Python syntax",
-        memory_types={MemoryType.TOPIC_FACT},
-    )
-
-    assert all(
-        result.memory.memory_type is MemoryType.TOPIC_FACT
-        for result in results
-    )
-
-
-def test_update_without_reembedding() -> None:
-    store = MemoryStore(
-        FakeEmbedder(),
-        client=QdrantClient(":memory:"),
-    )
-
-    now = utcnow()
-
-    memory = UserFact(
-        user_id=123,
-        created=now,
-        last_referenced=now,
-        confidence=0.5,
-        fact="The user likes Python.",
-        source_message_id=123,
-    )
-
-    store.add(memory)
-
-    updated = UserFact(
-        id=memory.id,
-        user_id=memory.user_id,
-        created=memory.created,
-        last_referenced=memory.last_referenced,
-        confidence=0.9,
-        fact=memory.fact,
-        source_message_id=memory.source_message_id,
-    )
-
-    store.update(
-        updated,
-        reembed=False,
-    )
-
-    loaded = store.get(memory.id)
-
-    assert isinstance(loaded, UserFact)
-    assert loaded.confidence == 0.9
-    assert loaded.fact == memory.fact
-
-
-def test_reference_tracking() -> None:
-    store = MemoryStore(
-        FakeEmbedder(),
-        client=QdrantClient(":memory:"),
-    )
-
-    created = datetime(
-        2026,
-        8,
-        1,
-        tzinfo=timezone.utc,
-    )
-
-    referenced = datetime(
-        2026,
-        8,
-        28,
-        tzinfo=timezone.utc,
-    )
-
-    memory = Preference(
-        created=created,
-        last_referenced=created,
-        preference="Sable enjoys discussing programming.",
-        strength=0.8,
-    )
-
-    store.add(memory)
-    store.reference(
-        memory.id,
-        timestamp=referenced,
-    )
-
-    loaded = store.get(memory.id)
-
-    assert loaded is not None
-    assert loaded.last_referenced == referenced
-
-
-def test_delete() -> None:
-    store = MemoryStore(
-        FakeEmbedder(),
-        client=QdrantClient(":memory:"),
-    )
-
-    now = utcnow()
-
-    memory = Preference(
-        created=now,
-        last_referenced=now,
-        preference="Sable prefers instrumental music.",
-        strength=0.7,
-    )
-
-    store.add(memory)
-    assert store.get(memory.id) is not None
-
-    store.delete(memory.id)
-
-    assert store.get(memory.id) is None
-
-
-def run_tests() -> None:
-    tests = [
-        test_raw_conversation,
-        test_user_fact_filter,
-        test_memory_type_filter,
-        test_update_without_reembedding,
-        test_reference_tracking,
-        test_delete,
-    ]
-
-    for test in tests:
-        test()
-
-    print(f"{len(tests)} tests passed.")
-
-if __name__ == "__main__":
-    run_tests()
