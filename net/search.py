@@ -98,7 +98,7 @@ class QuerySummarizer:
         text: str,
         max_tokens: int,
     ) -> str:
-        """Truncate text to max_tokens while preserving whole lines."""
+        """Truncate text to max_tokens while preserving whole lines where possible."""
 
         rough_char_ceiling = max_tokens * 8
         text = text[:rough_char_ceiling]
@@ -110,19 +110,23 @@ class QuerySummarizer:
             line_tokens = self.llm.tokenize(line.encode("utf-8"))
             line_token_count = len(line_tokens)
 
-            if line_token_count > max_tokens and token_count == 0:
-                tokens = line_tokens[:max_tokens]
+            remaining = max_tokens - token_count
 
-                return self.llm.detokenize(tokens).decode(
+            if line_token_count <= remaining:
+                token_count += line_token_count
+                char_count += len(line)
+                continue
+
+            # The line does not fit completely. Keep as much of it as possible.
+            if remaining > 0:
+                tokens = line_tokens[:remaining]
+                truncated_line = self.llm.detokenize(tokens).decode(
                     "utf-8",
                     errors="ignore",
                 )
+                return text[:char_count] + truncated_line
 
-            if token_count + line_token_count > max_tokens:
-                break
-
-            token_count += line_token_count
-            char_count += len(line)
+            break
 
         return text[:char_count]
 
