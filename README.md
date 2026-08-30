@@ -1,3 +1,24 @@
+## llama-cpp-python CUDA build
+
+The project uses llama-cpp-python 0.3.35 with CUDA GPU offloading.
+
+Required legacy CUDA toolchain for local dev environment:
+- GPU: NVIDIA GeForce GTX 960 (Compute Capability 5.2)
+- CUDA Toolkit: 11.8.0
+- nvcc: 11.8.89
+- MSVC: 14.29.30133 / 19.29.30159
+- CMake: Visual Studio Build Tools bundled CMake
+- Ninja: Visual Studio Build Tools bundled Ninja
+- CUDA architecture: sm_52
+
+The default MSVC 14.51 toolset is incompatible with CUDA 11.8.
+Use the VS developer environment with `-vcvars_ver=14.29`
+before building llama-cpp-python.
+
+CMake configuration:
+-DGGML_CUDA=on
+-DCMAKE_CUDA_ARCHITECTURES=52
+
 ## Installation & Setup
 
 ### Option A: Batch Script (Faster)
