@@ -13,7 +13,7 @@ llm = Llama(
 
 summarizer = QuerySummarizer(llm) 
 
-query = "Current political relation between commonwealth nations"
+query = ""
 
 print(query)
 print(summarizer(query))

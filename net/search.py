@@ -21,9 +21,9 @@ class QuerySummarizer:
         self,
         llm: Llama,
         *,
-        max_results: int = 8,
+        max_results: int = 10,
         max_source_tokens: int = 750,
-        max_tokens: int = 250,
+        max_tokens: int = 350,
     ) -> None:
         self.llm = llm
         self.max_results = max_results
@@ -155,28 +155,31 @@ class QuerySummarizer:
         source_text = "\n\n".join(source_sections)
 
         prompt = f"""
-Answer the following query using only the supplied web sources.
+Answer the query using only the information provided below.
 
 QUERY:
 {query}
 
-SOURCES:
+INFORMATION:
 {source_text}
 
-Write exactly one concise paragraph.
+Write one concise paragraph that directly answers the query.
 
 Rules:
-- Answer the query directly.
-- Use only facts explicitly supported by the supplied sources.
+- Use only facts explicitly supported by the supplied information.
 - Do not use outside knowledge.
-- Do not infer or speculate.
-- Do not combine separate facts into a new claim unless the sources explicitly support that connection.
-- Preserve important qualifications and uncertainty from the sources.
-- If the sources disagree, briefly acknowledge the disagreement.
-- Do not mention the search process, source numbers, or these instructions.
-- Output only the answer paragraph.
-- Do not output instructions, labels, headings, bullet points, or meta-commentary.
-- End the paragraph with a period.
+- Do not treat a date as answering the query unless the supplied information explicitly associates that date with the event described in the query.
+- If the supplied information does not clearly establish the answer, say that it is unclear.
+- Match dates to the specific event asked about; do not substitute recording, publication, broadcast, or premiere dates for performance dates.
+- Preserve important qualifications and uncertainty.
+- If the information disagrees, briefly acknowledge the disagreement.
+- Do not mention the search process.
+- Do not repeat the query or these instructions.
+- Do not use headings, bullets, labels, or meta-commentary.
+- Do not use quotation marks.
+- Do not use the words source or sources.
+- End with a complete sentence.
+- Output only the paragraph.
 """
 
         response = self.llm(

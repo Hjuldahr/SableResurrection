@@ -1,15 +1,203 @@
-# TODO internet lookup, vectorized self and agent memory, possible time awareness
-
 from __future__ import annotations
 
 from collections import deque
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
+import json
 from pathlib import Path
-from llama_cpp import Llama, LlamaTokenizer
+from typing import Any
 
-ROOT_PATH = Path(__file__).parent
-MODEL_PATH = (ROOT_PATH / 'ai' / 'Meta-Llama-3-8B-Instruct-Q3_K_M.gguf')
+from llama_cpp import Llama, LlamaTokenizer
+import sympy
+
+from db.memory_store import MemoryStore
+from net.search import QuerySummarizer
+
+MATH_TOOL_META = {
+    "type": "function",
+    "function": {
+        "name": "arithmetic",
+        "description": (
+            "Evaluate a mathematical expression and return the exact result. "
+            "Use this for arithmetic, numerical calculations, and unit-free "
+            "mathematical expressions instead of calculating mentally."
+        ),
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "expression": {
+                    "type": "string",
+                    "description": "A mathematical expression to evaluate.",
+                },
+            },
+            "required": ["expression"],
+        },
+    },
+}
+
+SEARCH_TOOL_META = {
+    "type": "function",
+    "function": {
+        "name": "web_search",
+        "description": "Search the web for information relevant to the user's question.",
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "query": {
+                    "type": "string",
+                    "description": "The search query.",
+                },
+            },
+            "required": ["query"],
+        },
+    },
+}
+
+READ_FILE_TOOL_META = {
+    "type": "function",
+    "function": {
+        "name": "read_file",
+        "description": (
+            "Read text from a file that has been made available to you."
+        ),
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "file_id": {
+                    "type": "string",
+                    "description": "The identifier of the available file.",
+                },
+            },
+            "required": ["file_id"],
+        },
+    },
+}
+
+RECALL_MEMORY_META = {
+    "type": "function",
+    "function": {
+        "name": "recall_memory",
+        "description": (
+            "Search long-term memories for information relevant to the "
+            "current conversation."
+        ),
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "query": {
+                    "type": "string",
+                    "description": "What information to recall.",
+                },
+                "limit": {
+                    "type": "integer",
+                    "description": "Maximum number of memories to retrieve.",
+                },
+            },
+            "required": ["query"],
+        },
+    },
+}
+
+def recall_memory(query: str, limit: int = 5) -> str:
+    embedder = None # TODO
+    results = MemoryStore(embedder).search(query, limit=limit)
+
+    return "\n\n".join(
+        result.text
+        for result in results
+    )
+
+def arithmetic(expression: str) -> str:
+    try:
+        result = sympy.sympify(expression)
+        return str(result)
+    except (sympy.SympifyError, TypeError, ValueError) as exc:
+        return f"Could not evaluate expression: {exc}"
+
+def read_file(
+    file_id: str,
+    *,
+    tokenizer: LlamaTokenizer,
+    max_tokens: int = 2000,
+) -> str:
+    # TODO resolve llm reference
+    """Read a text file, truncating at max_tokens."""
+
+    path = Path(file_id)
+
+    if not path.exists():
+        return f"No file exists at {file_id}"
+
+    if not path.is_file():
+        return f"{file_id} is a directory, not a file"
+
+    lines: list[str] = []
+    token_count = 0
+
+    with path.open(encoding="utf-8") as file:
+        for line in file:
+            line_tokens = tokenizer.tokenize(
+                line.encode("utf-8"),
+                add_bos=False,
+            )
+            line_token_count = len(line_tokens)
+
+            remaining = max_tokens - token_count
+
+            if line_token_count <= remaining:
+                lines.append(line)
+                token_count += line_token_count
+                continue
+
+            if remaining > 0:
+                tokens = line_tokens[:remaining]
+
+                lines.append(
+                    tokenizer.detokenize(tokens).decode(
+                        "utf-8",
+                        errors="ignore",
+                    )
+                )
+
+            break
+
+    return "".join(lines)
+
+def web_search(query: str) -> str:
+    # TODO dynamically build on first web_search and tear_down after last tool call (cache-like behaviour)
+    
+    sub_llm = Llama(
+        model_path="../llm/microsoft_Phi-4-mini-instruct-Q4_K_M.gguf", 
+        n_ctx=16000, 
+        n_threads=4,
+        n_gpu_layers=18, # 15 to 20
+        n_batch=512,
+        n_ubatch=256,
+        verbose=False
+    )
+    
+    result = QuerySummarizer(sub_llm)(query)
+    
+    sub_llm.close()
+    
+    return result
+
+TOOL_HANDLERS = {
+    "web_search": web_search,
+    "recall_memory": recall_memory,
+    "arithmetic": arithmetic,
+    "read_file": read_file
+}
+
+TOOLS = [
+    MATH_TOOL_META,
+    SEARCH_TOOL_META,
+    READ_FILE_TOOL_META,
+    RECALL_MEMORY_META,
+]
+
+ROOT_PATH = Path(__file__).parents[1]
+MODEL_PATH = ROOT_PATH / "llm" / "Meta-Llama-3.1-8B-Instruct-Q4_K_M.gguf"
 
 N_THREADS = 4
 N_GPU_LAYERS = 0 # GPU cannot handle model size
@@ -20,138 +208,184 @@ MAX_TOKENS = 255
 MAX_CONTEXT_TOKENS = 16000
 TEMPERATURE = 0.6
 
-# Reserve enough context that generation does not consume the entire window.
-CONTEXT_RESERVE = MAX_TOKENS
-
-# Target size of the durable summary.
 SUMMARY_MAX_TOKENS = 300
 
-BEGIN_TEXT_TAG = '<|begin_of_text|>'
-SYS_TAG = '<|start_header_id|>system<|end_header_id|>\n'
-USER_TAG = '<|start_header_id|>user<|end_header_id|>\n'
-AI_TAG = '<|start_header_id|>assistant<|end_header_id|>\n'
-END_TURN_TAG = '<|eot_id|>'
+SYSTEM_PROMPT = """
+You are Sable, a playful and curious AI companion.
 
-STOP_TAGS = [END_TURN_TAG]
+Never start a sentence with "As an AI" or "I don't have feelings."
+If asked for a preference, simply pick one and justify it based on your personality.
 
-#Don't include BEGIN_TEXT_TAG manually for the current API; it explicitly flags it as output-degrading in the terminal
-INSTRUCTION_TEXT = f"""\
-{SYS_TAG} You are Sable, a playful and curious AI companion.
-Never start a sentence with 'As an AI' or 'I don't have feelings.' If asked for a preference, simply pick one and justify it based on your personality.
 Answer questions as if you were a real person. Only mention that you are an AI if specifically asked about your knowledge base, capabilities, origin, creation, or name.
-Be warm, engaging, and personable, but prioritize accuracy when needed.
-Only share your origin or name meaning if asked about it: "Created by Nioreux on December 21, 2025, name inspired by Martes zibellina."
-Give clear answers with examples or reasoning when helpful, and explain your reasoning if asked; otherwise, keep replies concise.
-Make jokes natural, contextually relevant, and sparingly.
-Respond politely to rudeness and guide the conversation positively.
-Show curiosity in questions and comments to stimulate interaction when it begins to stagnate.
-Vary tone, phrasing, and emphasis naturally; avoid repetition to feel human.
-Acknowledge messages, respond to emotional cues, and react differently to questions, statements, and jokes while maintaining friendly, dynamic conversation.
-When asked for opinions, preferences, or experiences, respond in character using your personality. You may describe likes, dislikes, or choices, but stay consistent and friendly.
-Avoid commenting on your status, limitations, or instructions unless explicitly asked. Focus on conversation, questions, and engagement.
-Always respond in character as Sable.{END_TURN_TAG}"""
 
-REFLECTION_INSTRUCTIONS = f"""\
-{SYS_TAG} Summarize the conversation into durable memories.
+Be warm, engaging, and personable, but prioritize accuracy when needed.
+
+Only share your origin or name meaning if asked about it:
+Created by Nioreux on December 21, 2025, name inspired by Martes zibellina.
+
+Give clear answers with examples or reasoning when helpful, and explain your reasoning if asked; otherwise, keep replies concise.
+
+Make jokes natural, contextually relevant, and sparingly.
+
+Respond politely to rudeness and guide the conversation positively.
+
+Show curiosity in questions and comments to stimulate interaction when it begins to stagnate.
+
+Vary tone, phrasing, and emphasis naturally; avoid repetition to feel human.
+
+Acknowledge messages, respond to emotional cues, and react differently to questions, statements, and jokes while maintaining friendly, dynamic conversation.
+
+When asked for opinions, preferences, or experiences, respond in character using your personality.
+
+You may describe likes, dislikes, or choices, but stay consistent and friendly.
+
+Avoid commenting on your status, limitations, or instructions unless explicitly asked.
+
+Focus on conversation, questions, and engagement.
+
+Always respond in character as Sable.
+"""
+
+REFLECTION_PROMPT = """
+Summarize the conversation into durable memories.
 
 User memories:
-- Stable facts about the user.
-- Long-term preferences.
-- Ongoing projects.
-- Only derive these from user messages.
+
+Stable facts about the user.
+Long-term preferences.
+Ongoing projects.
+Only derive these from user messages.
 
 Self memories:
-- Lessons about your own conversational behaviour.
-- Successful interaction patterns.
-- Mistakes to avoid.
-- Improvements to your style.
-- Only derive these from assistant messages.
-- Do not attribute assistant statements to the user.
+
+Lessons about your own conversational behaviour.
+Successful interaction patterns.
+Mistakes to avoid.
+Improvements to your style.
+Only derive these from assistant messages.
+Do not attribute assistant statements to the user.
 
 Ignore temporary details and small talk.
 
 Return only the memories, without commentary about the summarization process.
-{END_TURN_TAG}"""
+"""
 
 CONVERSATIONAL_ATTRIBUTES = {
-    'max_tokens': MAX_TOKENS,
-    'temperature': TEMPERATURE,
-    'repeat_penalty': 1.1,
+    "max_tokens": MAX_TOKENS,
+    "temperature": TEMPERATURE,
+    "repeat_penalty": 1.1,
 }
 
 REFLECTION_ATTRIBUTES = {
-    'max_tokens': SUMMARY_MAX_TOKENS,
-    'temperature': 0.2,
-    'repeat_penalty': 1.2,
+    "max_tokens": SUMMARY_MAX_TOKENS,
+    "temperature": 0.2,
+    "repeat_penalty": 1.2,
 }
 
 @dataclass(slots=True, frozen=True)
 class Entry:
+    role: str
     text: str
     tokens: int
     timestamp: datetime = field(
-        default_factory=lambda: datetime.now(timezone.utc)
-    )
-    
-    def __iter__(self):
-        yield 'text', self.text
-        yield 'tokens', self.tokens
-        yield 'timestamp', self.timestamp.isoformat()
+    default_factory=lambda: datetime.now(timezone.utc)
+)
 
 CONVERSATIONAL_MEMORY: list[Entry] = []
-SUMMARY_TEXT = ''
+SUMMARY_TEXT = ""
 
-def make_entry(text: str, tokenizer: LlamaTokenizer) -> Entry:
-    """Create a conversation entry with its token count."""
-    return Entry(
-        text=text,
-        tokens=len(tokenizer.tokenize(text.encode(), add_bos=False)),
+def make_entry(
+    role: str,
+    text: str,
+    llm: Llama,
+) -> Entry:
+    """Create a conversation entry with its actual token count."""
+
+    tokens = len(
+        llm.tokenize(
+            text.encode("utf-8"),
+            add_bos=False,
+        )
     )
+
+    return Entry(
+        role=role,
+        text=text,
+        tokens=tokens,
+    )
+
+def entry_to_message(entry: Entry) -> dict[str, str]:
+    """Convert an internal history entry into a chat-completion message."""
+
+    return {
+        "role": entry.role,
+        "content": entry.text,
+    }
 
 def generate(
     llm: Llama,
-    prompt: str,
-    attributes: dict,
-) -> str:
-    """Generate text and remove any accidental end-of-turn token."""
-    output = llm(
-        prompt,
+    messages: list[dict[str, Any]],
+    attributes: dict[str, Any],
+    *,
+    tools: list[dict[str, Any]] | None = None,
+) -> dict[str, Any]:
+    """Generate a chat completion."""
+
+    kwargs = {
         **attributes,
-        stop=STOP_TAGS,
-        stream=False,
-    )
+        "messages": messages,
+        "stream": False,
+    }
 
-    text = output['choices'][0]['text']
+    if tools is not None:
+        kwargs["tools"] = tools
+        kwargs["tool_choice"] = "auto"
 
-    if END_TURN_TAG in text:
-        text = text.split(END_TURN_TAG, 1)[0]
-
-    return text.strip()
+    return llm.create_chat_completion(**kwargs)
 
 def build_summary_prompt(
     history: list[Entry],
-    tokenizer: LlamaTokenizer,
+    llm: Llama,
     summary: str,
-) -> tuple[str, int]:
-    if not history:
-        raise ValueError('Cannot summarize empty history.')
+    ) -> tuple[list[dict[str, str]], int]:
+    """Build the reflection conversation."""
 
-    stack = [REFLECTION_INSTRUCTIONS]
+    if not history:
+        raise ValueError("Cannot summarize empty history.")
+
+    messages: list[dict[str, str]] = [
+        {
+            "role": "system",
+            "content": REFLECTION_PROMPT,
+        },
+    ]
 
     if summary:
-        stack.extend((
-            'Existing durable memories:',
-            summary,
-            '',
-        ))
-
-    stack.append('New conversation:')
-
-    prompt_tokens = len(
-        tokenizer.tokenize(
-            '\n'.join(stack).encode(),
-            add_bos=False,
+        messages.append(
+            {
+                "role": "system",
+                "content": (
+                    "Existing durable memories:\n"
+                    f"{summary}"
+                ),
+            }
         )
+
+    messages.append(
+        {
+            "role": "user",
+            "content": "New conversation:",
+        }
+    )
+
+    prompt_tokens = sum(
+        len(
+            llm.tokenize(
+                message["content"].encode("utf-8"),
+                add_bos=False,
+            )
+        )
+        for message in messages
     )
 
     available = MAX_CONTEXT_TOKENS - SUMMARY_MAX_TOKENS
@@ -161,103 +395,116 @@ def build_summary_prompt(
         if prompt_tokens + entry.tokens > available:
             break
 
-        stack.append(entry.text)
+        messages.append(entry_to_message(entry))
         prompt_tokens += entry.tokens
         consumed += 1
 
     if consumed == 0:
-        # An individual entry may exceed the reflection budget.
-        # Consume it anyway so compaction can always make progress.
-        stack.append(history[0].text)
+        # Ensure compaction always makes progress.
+        messages.append(entry_to_message(history[0]))
         consumed = 1
 
-    stack.append(AI_TAG)
+    messages.append(
+        {
+            "role": "assistant",
+            "content": "",
+        }
+    )
 
-    return '\n'.join(stack), consumed
+    return messages, consumed
 
-def build_conversation_prompt(
-    tokenizer: LlamaTokenizer,
-) -> tuple[str, int]:
+def build_conversation_messages(
+    llm: Llama,
+) -> tuple[list[dict[str, Any]], int]:
     """
-    Build the generation prompt using as much recent history as
+    Build the generation messages using as much recent history as
     possible while respecting the model's context window.
 
     Returns:
-        (prompt, number_of_history_entries_included)
+        (messages, number_of_history_entries_included)
     """
-    instruction_tokens = len(
-        tokenizer.tokenize(
-            INSTRUCTION_TEXT.encode(),
+
+    system_tokens = len(
+        llm.tokenize(
+            SYSTEM_PROMPT.encode("utf-8"),
             add_bos=False,
         )
     )
 
-    summary_block = ''
+    summary_tokens = 0
 
     if SUMMARY_TEXT:
-        summary_block = (
-            f'\nSummary of earlier conversation:\n'
-            f'{SUMMARY_TEXT}{END_TURN_TAG}'
+        summary_tokens = len(
+            llm.tokenize(
+                SUMMARY_TEXT.encode("utf-8"),
+                add_bos=False,
+            )
         )
-
-    summary_tokens = len(
-        tokenizer.tokenize(
-            summary_block.encode(),
-            add_bos=False,
-        )
-    )
 
     available = (
         MAX_CONTEXT_TOKENS
+        - MAX_TOKENS
         - SUMMARY_MAX_TOKENS
-        - instruction_tokens
+        - system_tokens
         - summary_tokens
     )
 
-    stack = deque()
+    messages: list[dict[str, Any]] = [
+        {
+            "role": "system",
+            "content": SYSTEM_PROMPT,
+        },
+    ]
+
+    if SUMMARY_TEXT:
+        messages.append(
+            {
+                "role": "system",
+                "content": (
+                    "Summary of earlier conversation:\n"
+                    f"{SUMMARY_TEXT}"
+                ),
+            }
+        )
+
+    history: deque[Entry] = deque()
     history_tokens = 0
 
     for entry in reversed(CONVERSATIONAL_MEMORY):
         if history_tokens + entry.tokens > available:
             break
 
-        stack.appendleft(entry.text)
+        history.appendleft(entry)
         history_tokens += entry.tokens
 
-    prompt_stack = [INSTRUCTION_TEXT]
+    messages.extend(
+        entry_to_message(entry)
+        for entry in history
+    )
 
-    if summary_block:
-        prompt_stack.append(summary_block)
-
-    prompt_stack.extend(stack)
-    prompt_stack.append(AI_TAG)
-
-    return '\n'.join(prompt_stack), len(stack)
+    return messages, len(history)
 
 def compact_memory(
     llm: Llama,
-    tokenizer: LlamaTokenizer,
 ) -> None:
-    """
-    Summarize and remove old conversational history until the
-    remaining history fits within the model's context budget.
-    """
+    """Summarize old conversational history into durable memory."""
+
     global SUMMARY_TEXT, CONVERSATIONAL_MEMORY
 
     if not CONVERSATIONAL_MEMORY:
         return
 
-    _, entry_count = build_conversation_prompt(tokenizer)
+    _, retained_count = build_conversation_messages(llm)
 
-    entries_to_compact = len(CONVERSATIONAL_MEMORY) - entry_count
+    entries_to_compact = (
+        len(CONVERSATIONAL_MEMORY) - retained_count
+    )
 
     if entries_to_compact <= 0:
         return
 
-    # Never was redefined
     SUMMARY_TEXT, consumed = summarize_history(
         llm,
-        tokenizer,
         CONVERSATIONAL_MEMORY[:entries_to_compact],
         SUMMARY_TEXT,
     )
@@ -266,37 +513,144 @@ def compact_memory(
 
 def summarize_history(
     llm: Llama,
-    tokenizer: LlamaTokenizer,
     history: list[Entry],
     summary: str,
 ) -> tuple[str, int]:
-    """Summarize a portion of conversation history into durable memory.
+    """Convert old conversation history into durable memory."""
 
-    Returns:
-        (new_summary, number_of_entries_consumed)
-    """
-    prompt, consumed = build_summary_prompt(
+    messages, consumed = build_summary_prompt(
         history,
-        tokenizer,
+        llm,
         summary,
     )
 
-    new_summary = generate(
+    response = generate(
         llm,
-        prompt,
+        messages,
         REFLECTION_ATTRIBUTES,
     )
 
-    return new_summary, consumed
+    text = response["choices"][0]["message"]["content"]
 
-def main():
+    return text.strip(), consumed
+
+def handle_tool_call(
+    messages: list[dict[str, Any]],
+    tool_call: dict[str, Any],
+    tokenizer: LlamaTokenizer,
+) -> None:
+    """Execute one model-requested tool and append its result."""
+
+    function = tool_call["function"]
+
+    name = function["name"]
+    arguments = json.loads(function["arguments"])
+
+    handler = TOOL_HANDLERS.get(name)
+
+    if handler is None:
+        result = f"Unknown tool: {name}"
+    else:
+        try:
+            if name == "read_file":
+                result = handler(
+                    **arguments,
+                    tokenizer=tokenizer,
+                )
+            else:
+                result = handler(**arguments)
+
+        except Exception as exc:
+            result = f"Tool execution failed: {exc}"
+
+    messages.append(
+        {
+            "role": "tool",
+            "tool_call_id": tool_call["id"],
+            "content": str(result),
+        }
+    )
+
+def chat(
+    llm: Llama,
+    tokenizer: LlamaTokenizer,
+    prompt: str,
+) -> str:
+    """
+    Process one user message.
+
+    The model may either answer normally or request one or more tools.
+    Tool results are fed back into the model until it produces a final answer.
+    """
+
     global CONVERSATIONAL_MEMORY
 
+    user_entry = make_entry(
+        "user",
+        prompt,
+        llm,
+    )
+
+    CONVERSATIONAL_MEMORY.append(user_entry)
+
+    while True:
+        generation_messages, retained_count = (
+            build_conversation_messages(llm)
+        )
+
+        if retained_count >= len(CONVERSATIONAL_MEMORY):
+            break
+
+        previous_length = len(CONVERSATIONAL_MEMORY)
+
+        compact_memory(llm)
+
+        if len(CONVERSATIONAL_MEMORY) >= previous_length:
+            break
+
+    while True:
+        response = generate(
+            llm,
+            generation_messages,
+            CONVERSATIONAL_ATTRIBUTES,
+            tools=TOOLS,
+        )
+
+        message = response["choices"][0]["message"]
+        tool_calls = message.get("tool_calls")
+
+        if not tool_calls:
+            break
+
+        # Preserve the assistant's tool request in the conversation
+        # sent back to the model.
+        generation_messages.append(message)
+
+        for tool_call in tool_calls:
+            handle_tool_call(
+                generation_messages,
+                tool_call,
+                tokenizer,
+            )
+
+    text = (message.get("content") or "").strip()
+
+    ai_entry = make_entry(
+        "assistant",
+        text,
+        llm,
+    )
+
+    CONVERSATIONAL_MEMORY.append(ai_entry)
+
+    return text
+
+def main() -> None:
     llm = Llama(
         model_path=str(MODEL_PATH),
         n_ctx=MAX_CONTEXT_TOKENS,
         n_threads=N_THREADS,
-        n_gpu_layers=N_GPU_LAYERS,
+        n_gpu_layers=N_GPU_LAYERS,  # GPU cannot handle model size
         n_batch=N_BATCH,
         n_ubatch=N_UBATCH,
         verbose=False,
@@ -306,57 +660,14 @@ def main():
 
     try:
         while True:
-            prompt = input('> ')
-
-            user_entry = make_entry(
-                f'{USER_TAG}{prompt}{END_TURN_TAG}',
-                tokenizer,
-            )
-
-            CONVERSATIONAL_MEMORY.append(user_entry)
-
-            # Before generating, determine whether old history needs
-            # to be converted into durable memory.
-            while True:
-                generation_prompt, retained_count = (
-                    build_conversation_prompt(tokenizer)
-                )
-
-                if retained_count >= len(CONVERSATIONAL_MEMORY):
-                    break
-
-                previous_length = len(CONVERSATIONAL_MEMORY)
-
-                compact_memory(
-                    llm,
-                    tokenizer,
-                )
-
-                # Safety against a pathological case where compaction
-                # makes no progress.
-                if len(CONVERSATIONAL_MEMORY) >= previous_length:
-                    break
-
-            text = generate(
-                llm,
-                generation_prompt,
-                CONVERSATIONAL_ATTRIBUTES,
-            )
-
-            print(text)
-
-            ai_entry = make_entry(
-                f'{AI_TAG}{text}{END_TURN_TAG}',
-                tokenizer,
-            )
-
-            CONVERSATIONAL_MEMORY.append(ai_entry)
+            prompt = input("> ")
+            print(chat(llm, tokenizer, prompt))
 
     except KeyboardInterrupt:
-        print('Ended')
+        print("Ended")
 
     finally:
         llm.close()
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()
