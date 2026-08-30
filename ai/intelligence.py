@@ -98,12 +98,14 @@ RECALL_MEMORY_META = {
     },
 }
 
+embedder = None # TODO
+MEMORY_STORE = MemoryStore(embedder)
+
 def recall_memory(query: str, limit: int = 5) -> str:
-    embedder = None # TODO
-    results = MemoryStore(embedder).search(query, limit=limit)
+    results = MEMORY_STORE.search(query, limit=limit)
 
     return "\n\n".join(
-        result.text
+        f'{result.memory.timestamp} {result.memory.text}'
         for result in results
     )
 
