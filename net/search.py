@@ -104,6 +104,10 @@ class QuerySummarizer:
         This is preferable to estimating tokens from character count.
         """
 
+        #5x multiplier gives a tight buffer for Phi-4 Mini as it uses ~4.4 to 4.8 tokens per word
+        rough_char_ceiling = max_tokens * 5
+        text = text[:rough_char_ceiling]
+
         tokens = self.llm.tokenize(
             text.encode("utf-8")
         )
@@ -128,6 +132,8 @@ class QuerySummarizer:
         source_sections = []
 
         for result, text in sources:
+            print(f'I am currently reading: {result.title}') # TEMP
+            
             text = self._truncate(
                 text,
                 self.max_source_tokens,
@@ -159,7 +165,6 @@ Rules:
 - If the sources disagree, briefly acknowledge it.
 - Output only the paragraph.
 """
-
         response = self.llm(
             prompt,
             max_tokens=self.max_tokens,

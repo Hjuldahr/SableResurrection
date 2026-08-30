@@ -12,11 +12,12 @@ ROOT_PATH = Path(__file__).parent
 MODEL_PATH = (ROOT_PATH / 'ai' / 'Meta-Llama-3-8B-Instruct-Q3_K_M.gguf')
 
 N_THREADS = 4
-N_GPU_LAYERS = 16
-N_BATCH = 128
+N_GPU_LAYERS = 0 # GPU cannot handle model size
+N_BATCH = 512
+N_UBATCH = 256
 
 MAX_TOKENS = 255
-MAX_CONTEXT_TOKENS = 4096
+MAX_CONTEXT_TOKENS = 16000
 TEMPERATURE = 0.6
 
 # Reserve enough context that generation does not consume the entire window.
@@ -241,7 +242,7 @@ def compact_memory(
     Summarize and remove old conversational history until the
     remaining history fits within the model's context budget.
     """
-    global SUMMARY_TEXT
+    global SUMMARY_TEXT, CONVERSATIONAL_MEMORY
 
     if not CONVERSATIONAL_MEMORY:
         return
@@ -263,6 +264,31 @@ def compact_memory(
 
     CONVERSATIONAL_MEMORY = CONVERSATIONAL_MEMORY[consumed:]
 
+def summarize_history(
+    llm: Llama,
+    tokenizer: LlamaTokenizer,
+    history: list[Entry],
+    summary: str,
+) -> tuple[str, int]:
+    """Summarize a portion of conversation history into durable memory.
+
+    Returns:
+        (new_summary, number_of_entries_consumed)
+    """
+    prompt, consumed = build_summary_prompt(
+        history,
+        tokenizer,
+        summary,
+    )
+
+    new_summary = generate(
+        llm,
+        prompt,
+        REFLECTION_ATTRIBUTES,
+    )
+
+    return new_summary, consumed
+
 def main():
     global CONVERSATIONAL_MEMORY
 
@@ -272,6 +298,7 @@ def main():
         n_threads=N_THREADS,
         n_gpu_layers=N_GPU_LAYERS,
         n_batch=N_BATCH,
+        n_ubatch=N_UBATCH,
         verbose=False,
     )
 

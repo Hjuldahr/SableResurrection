@@ -21,6 +21,7 @@ Follow these steps to set up the project environment. 
 
 * **Python 3.12:** Download and install [Python 3.12 🐍](https://www.python.org/downloads/release/python-31210/). Ensure you check the box to **"Add Python to PATH"** during installation.
 * **LLM File:** Download the [Meta-Llama-3-8B-Instruct-GGUF 🦙](https://huggingface.co/QuantFactory/Meta-Llama-3-8B-Instruct-GGUF) model. Save it to `.\llm\Meta-Llama-3-8B-Instruct-Q3_K_M.gguf`, or replace it with a higher-end quantization if your GPU has more than 3 digits in its name, unlike mine.
+* **GPU Acceleration:** Download the [CUDA](https://developer.nvidia.com/cuda-downloads) toolkit.
 
 #### 2. Clone the Repository
 
@@ -73,15 +74,11 @@ py -3.12 -m venv .venv
 ```
 Using your standalone or IDE-integrated console
 
-4. Install the required packages: 
+4. Enable CUDA for Llama (reinstallation needed if you have the default CPU only version already): 
+```
+set CMAKE_ARGS=-DGGML_CUDA=on
+```
+5. Install the required packages: 
 ```
 pip install -r requirements.txt
 ```
-##### Option B: Using VS Code UI
-
-1. Ensure the [Python Extension](https://marketplace.visualstudio.com/items?itemName=ms-python.python) is installed.
-2. Press Ctrl + Shift + P (or ⌘ + Shift + P on Mac) to open the Command Palette.
-3. Select **Python: Create Environment...**
-4. Choose **Venv**.
-5. Select **Python 3.12** as your interpreter.
-6. When prompted to select a dependencies file, check **requirements.txt** and click **OK**.
