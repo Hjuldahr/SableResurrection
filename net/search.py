@@ -21,9 +21,9 @@ class QuerySummarizer:
         self,
         llm: Llama,
         *,
-        max_results: int = 5,
-        max_source_tokens: int = 500,
-        max_tokens: int = 300,
+        max_results: int = 8,
+        max_source_tokens: int = 750,
+        max_tokens: int = 250,
     ) -> None:
         self.llm = llm
         self.max_results = max_results
@@ -98,29 +98,33 @@ class QuerySummarizer:
         text: str,
         max_tokens: int,
     ) -> str:
-        """
-        Truncate text according to the model's actual tokenizer.
+        """Truncate text to max_tokens while preserving whole lines."""
 
-        This is preferable to estimating tokens from character count.
-        """
-
-        #5x multiplier gives a tight buffer for Phi-4 Mini as it uses ~4.4 to 4.8 tokens per word
-        rough_char_ceiling = max_tokens * 5
+        rough_char_ceiling = max_tokens * 8
         text = text[:rough_char_ceiling]
 
-        tokens = self.llm.tokenize(
-            text.encode("utf-8")
-        )
+        token_count = 0
+        char_count = 0
 
-        if len(tokens) <= max_tokens:
-            return text
+        for line in text.splitlines(keepends=True):
+            line_tokens = self.llm.tokenize(line.encode("utf-8"))
+            line_token_count = len(line_tokens)
 
-        tokens = tokens[:max_tokens]
+            if line_token_count > max_tokens and token_count == 0:
+                tokens = line_tokens[:max_tokens]
 
-        return self.llm.detokenize(tokens).decode(
-            "utf-8",
-            errors="ignore",
-        )
+                return self.llm.detokenize(tokens).decode(
+                    "utf-8",
+                    errors="ignore",
+                )
+
+            if token_count + line_token_count > max_tokens:
+                break
+
+            token_count += line_token_count
+            char_count += len(line)
+
+        return text[:char_count]
 
     def summarize(
         self,
@@ -147,7 +151,7 @@ class QuerySummarizer:
         source_text = "\n\n".join(source_sections)
 
         prompt = f"""
-Answer the following query using the supplied web sources.
+Answer the following query using only the supplied web sources.
 
 QUERY:
 {query}
@@ -159,12 +163,18 @@ Write exactly one concise paragraph.
 
 Rules:
 - Answer the query directly.
-- Use only information supported by the sources.
-- Do not invent facts.
-- Do not mention the search process.
-- If the sources disagree, briefly acknowledge it.
-- Output only the paragraph.
+- Use only facts explicitly supported by the supplied sources.
+- Do not use outside knowledge.
+- Do not infer or speculate.
+- Do not combine separate facts into a new claim unless the sources explicitly support that connection.
+- Preserve important qualifications and uncertainty from the sources.
+- If the sources disagree, briefly acknowledge the disagreement.
+- Do not mention the search process, source numbers, or these instructions.
+- Output only the answer paragraph.
+- Do not output instructions, labels, headings, bullet points, or meta-commentary.
+- End the paragraph with a period.
 """
+
         response = self.llm(
             prompt,
             max_tokens=self.max_tokens,
