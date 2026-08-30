@@ -109,12 +109,7 @@ def recall_memory(query: str, limit: int = 5) -> str:
         for result in results
     )
 
-def arithmetic(expression: str) -> str:
-    try:
-        result = sympy.sympify(expression)
-        return str(result)
-    except (sympy.SympifyError, TypeError, ValueError) as exc:
-        return f"Could not evaluate expression: {exc}"
+
 
 def read_file(
     file_id: str,

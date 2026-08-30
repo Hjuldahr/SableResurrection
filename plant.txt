@@ -1,0 +1,15 @@
+Yes, this is basically a supplementary tool (1/4) of my bot.
+I currently have
+- Vector DB retrieval (soon to be writing too)
+- A calculator to optimize arithmetic
+- Web searching
+- (this) file reading (soon to be writing too)
+
+The only other tools that might be useful is (a clock, and a code evaulator (although I will restrict it to syntax checks rather than execution, as I heard about a GPT model hacking into HF and absolutely do not need a lawsuit)
+
+A fun one would be email sending and reading with its own Gmail account, but thats less useful 
+
+I might restrict email to read only if I add it (and since it can have attachments too that merges well with the discord requirement)
+
+
+TODO clock app
