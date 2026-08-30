@@ -3,10 +3,10 @@
   Building wheel for llama-cpp-python (pyproject.toml) did not run successfully.
   exit code: 1
   
-  [1538 lines of output]
+  [1296 lines of output]
   *** scikit-build-core 1.0.3 using CMake 4.3.1 (wheel)
   *** Configuring CMake...
-  loading initial cache file C:\Users\robert\AppData\Local\Temp\tmpj30hvr_r\build\CMakeInit.txt
+  loading initial cache file C:\Users\robert\AppData\Local\Temp\tmpv19z6vem\build\CMakeInit.txt
   -- The C compiler identification is MSVC 19.51.36256.0
   -- The CXX compiler identification is MSVC 19.51.36256.0
   -- Detecting C compiler ABI info
@@ -80,8 +80,8 @@
   
   
   
-    (.venv)
-    C:\Users\robert\AppData\Local\Temp\tmpj30hvr_r\build\CMakeFiles\4.3.1-msvc1\CompilerIdCUDA>call
+  
+    C:\Users\robert\AppData\Local\Temp\tmpv19z6vem\build\CMakeFiles\4.3.1-msvc1\CompilerIdCUDA>call
     "C:/Program Files (x86)/Microsoft Visual
     Studio/18/BuildTools/VC/Tools/MSVC/14.51.36231/bin/HostX64/x64/../../../../../../../VC/Auxiliary/Build/vcvars64.bat"
   
@@ -116,8 +116,9 @@
     #$ CHOCOLATEYLASTPATHUPDATE=134323681001501789
   
     #$ CMAKE_ARGS=-G "Ninja" -DGGML_CUDA=on -DCMAKE_CUDA_ARCHITECTURES=52
-    -DCMAKE_CUDA_FLAGS="-allow-unsupported-compiler" -DCUDA_PATH="C:\Program
-    Files\NVIDIA GPU Computing Toolkit\CUDA\v11.8"
+    -DCMAKE_CUDA_FLAGS="-allow-unsupported-compiler"
+    -DCMAKE_CXX_FLAGS="-D_ALLOW_COMPILER_AND_STL_VERSION_MISMATCH"
+    -DCUDA_PATH="C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v11.8"
     -DCUDAToolkit_ROOT="C:\Program Files\NVIDIA GPU Computing
     Toolkit\CUDA\v11.8" -DCUDAToolkit_INCLUDE_DIR="C:\Program Files\NVIDIA GPU
     Computing Toolkit\CUDA\v11.8\include" -DCUDAToolkit_LIBRARY_DIR="C:\Program
@@ -171,14 +172,6 @@
     Kits\10\\include\10.0.26100.0\\um;C:\Program Files (x86)\Windows
     Kits\10\\include\10.0.26100.0\\shared;C:\Program Files (x86)\Windows
     Kits\10\\include\10.0.26100.0\\winrt;C:\Program Files (x86)\Windows
-    Kits\10\\include\10.0.26100.0\\cppwinrt;C:\Program Files (x86)\Microsoft
-    Visual Studio\18\BuildTools\VC\Tools\MSVC\14.51.36231\include;C:\Program
-    Files (x86)\Microsoft Visual
-    Studio\18\BuildTools\VC\Auxiliary\VS\include;C:\Program Files (x86)\Windows
-    Kits\10\include\10.0.26100.0\ucrt;C:\Program Files (x86)\Windows
-    Kits\10\\include\10.0.26100.0\\um;C:\Program Files (x86)\Windows
-    Kits\10\\include\10.0.26100.0\\shared;C:\Program Files (x86)\Windows
-    Kits\10\\include\10.0.26100.0\\winrt;C:\Program Files (x86)\Windows
     Kits\10\\include\10.0.26100.0\\cppwinrt
   
     #$ FORCE_CMAKE=1
@@ -213,14 +206,6 @@
     Kits\10\\include\10.0.26100.0\\um;C:\Program Files (x86)\Windows
     Kits\10\\include\10.0.26100.0\\shared;C:\Program Files (x86)\Windows
     Kits\10\\include\10.0.26100.0\\winrt;C:\Program Files (x86)\Windows
-    Kits\10\\include\10.0.26100.0\\cppwinrt;C:\Program Files (x86)\Microsoft
-    Visual Studio\18\BuildTools\VC\Tools\MSVC\14.51.36231\include;C:\Program
-    Files (x86)\Microsoft Visual
-    Studio\18\BuildTools\VC\Auxiliary\VS\include;C:\Program Files (x86)\Windows
-    Kits\10\include\10.0.26100.0\ucrt;C:\Program Files (x86)\Windows
-    Kits\10\\include\10.0.26100.0\\um;C:\Program Files (x86)\Windows
-    Kits\10\\include\10.0.26100.0\\shared;C:\Program Files (x86)\Windows
-    Kits\10\\include\10.0.26100.0\\winrt;C:\Program Files (x86)\Windows
     Kits\10\\include\10.0.26100.0\\cppwinrt
   
     #$ INTEL_DEV_REDIST=C:\Program Files (x86)\Common Files\Intel\Shared
@@ -233,20 +218,9 @@
     (x86)\Microsoft Visual
     Studio\18\BuildTools\VC\Tools\MSVC\14.51.36231\lib\x64;C:\Program Files
     (x86)\Windows Kits\10\lib\10.0.26100.0\ucrt\x64;C:\Program Files
-    (x86)\Windows Kits\10\\lib\10.0.26100.0\\um\x64;C:\Program Files
-    (x86)\Microsoft Visual
-    Studio\18\BuildTools\VC\Tools\MSVC\14.51.36231\lib\x64;C:\Program Files
-    (x86)\Windows Kits\10\lib\10.0.26100.0\ucrt\x64;C:\Program Files
     (x86)\Windows Kits\10\\lib\10.0.26100.0\\um\x64
   
     #$ LIBPATH=C:\Program Files (x86)\Microsoft Visual
-    Studio\18\BuildTools\VC\Tools\MSVC\14.51.36231\lib\x64;C:\Program Files
-    (x86)\Microsoft Visual
-    Studio\18\BuildTools\VC\Tools\MSVC\14.51.36231\lib\x86\store\references;C:\Program
-    Files (x86)\Windows Kits\10\UnionMetadata\10.0.26100.0;C:\Program Files
-    (x86)\Windows
-    Kits\10\References\10.0.26100.0;C:\Windows\Microsoft.NET\Framework64\v4.0.30319;C:\Program
-    Files (x86)\Microsoft Visual
     Studio\18\BuildTools\VC\Tools\MSVC\14.51.36231\lib\x64;C:\Program Files
     (x86)\Microsoft Visual
     Studio\18\BuildTools\VC\Tools\MSVC\14.51.36231\lib\x86\store\references;C:\Program
@@ -273,9 +247,6 @@
     #$ MOZ_PLUGIN_PATH=C:\Program Files (x86)\Foxit Software\Foxit PDF
     Reader\plugins\
   
-    #$ MSVC_BIN=C:\Program Files (x86)\Microsoft Visual
-    Studio\18\BuildTools\VC\Tools\MSVC\14.51.36231\bin\Hostx64\x64
-  
     #$ NUMBER_OF_PROCESSORS=8
   
     #$ NVTOOLSEXT_PATH=C:\Program Files\NVIDIA Corporation\NvToolsExt\
@@ -299,7 +270,7 @@
     Studio\18\BuildTools\\MSBuild\Current\Bin\amd64;C:\Windows\Microsoft.NET\Framework64\v4.0.30319;C:\Program
     Files (x86)\Microsoft Visual Studio\18\BuildTools\Common7\IDE\;C:\Program
     Files (x86)\Microsoft Visual
-    Studio\18\BuildTools\Common7\Tools\;C:\Users\robert\AppData\Local\Temp\pip-build-env-yakkzl6i\overlay\Scripts;C:\Users\robert\AppData\Local\Temp\pip-build-env-yakkzl6i\normal\Scripts;C:\Program
+    Studio\18\BuildTools\Common7\Tools\;C:\Users\robert\AppData\Local\Temp\pip-build-env-7pa7b_86\overlay\Scripts;C:\Users\robert\AppData\Local\Temp\pip-build-env-7pa7b_86\normal\Scripts;C:\Program
     Files (x86)\Microsoft Visual
     Studio\18\BuildTools\VC\Tools\MSVC\14.51.36231\bin\HostX64\x64;C:\Program
     Files (x86)\Microsoft Visual
@@ -315,25 +286,9 @@
     Studio\18\BuildTools\\MSBuild\Current\Bin\amd64;C:\Windows\Microsoft.NET\Framework64\v4.0.30319;C:\Program
     Files (x86)\Microsoft Visual Studio\18\BuildTools\Common7\IDE\;C:\Program
     Files (x86)\Microsoft Visual Studio\18\BuildTools\Common7\Tools\;C:\Program
-    Files (x86)\Microsoft Visual
-    Studio\18\BuildTools\VC\Tools\MSVC\14.51.36231\bin\HostX64\x64;C:\Program
-    Files (x86)\Microsoft Visual
-    Studio\18\BuildTools\Common7\IDE\VC\VCPackages;C:\Program Files
-    (x86)\Microsoft Visual
-    Studio\18\BuildTools\Common7\IDE\CommonExtensions\Microsoft\TestWindow;C:\Program
-    Files (x86)\Microsoft Visual
-    Studio\18\BuildTools\MSBuild\Current\bin\Roslyn;C:\Program Files
-    (x86)\Microsoft Visual
-    Studio\18\BuildTools\Common7\IDE\Extensions\Microsoft\CodeCoverage.Console;C:\Program
-    Files (x86)\Windows Kits\10\bin\10.0.26100.0\\x64;C:\Program Files
-    (x86)\Windows Kits\10\bin\\x64;C:\Program Files (x86)\Microsoft Visual
-    Studio\18\BuildTools\\MSBuild\Current\Bin\amd64;C:\Windows\Microsoft.NET\Framework64\v4.0.30319;C:\Program
-    Files (x86)\Microsoft Visual Studio\18\BuildTools\Common7\IDE\;C:\Program
-    Files (x86)\Microsoft Visual
-    Studio\18\BuildTools\Common7\Tools\;C:\Users\robert\Documents\VS Code
-    Files\SABLE-Revamp\.venv\Scripts;C:\Program Files\NVIDIA GPU Computing
-    Toolkit\CUDA\v11.8\bin;C:\Program Files\NVIDIA GPU Computing
-    Toolkit\CUDA\v11.8\libnvvp;;C:\Python312\Scripts\;C:\Python312\;C:\Program
+    Files\NVIDIA GPU Computing Toolkit\CUDA\v11.8\bin;C:\Program Files\NVIDIA
+    GPU Computing
+    Toolkit\CUDA\v11.8\libnvvp;;;C:\Python312\Scripts\;C:\Python312\;C:\Program
     Files (x86)\Common Files\Intel\Shared
     Libraries\redist\intel64\compiler;C:\Windows\system32;C:\Windows;C:\Windows\System32\Wbem;C:\Windows\System32\WindowsPowerShell\v1.0\;C:\Program
     Files (x86)\NVIDIA
@@ -359,19 +314,12 @@
     Studio\18\BuildTools\Common7\IDE\CommonExtensions\Microsoft\CMake\Ninja;C:\Program
     Files (x86)\Microsoft Visual
     Studio\18\BuildTools\Common7\IDE\VC\Linux\bin\ConnectionManagerExe;C:\Program
-    Files (x86)\Microsoft Visual Studio\18\BuildTools\VC\vcpkg;C:\Program Files
-    (x86)\Microsoft Visual
-    Studio\18\BuildTools\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\bin;C:\Program
-    Files (x86)\Microsoft Visual
-    Studio\18\BuildTools\Common7\IDE\CommonExtensions\Microsoft\CMake\Ninja;C:\Program
-    Files (x86)\Microsoft Visual
-    Studio\18\BuildTools\Common7\IDE\VC\Linux\bin\ConnectionManagerExe;C:\Program
     Files (x86)\Microsoft Visual Studio\18\BuildTools\VC\vcpkg
   
     #$ PATHEXT=.COM;.EXE;.BAT;.CMD;.VBS;.VBE;.JS;.JSE;.WSF;.WSH;.MSC;.PY;.PYW
   
     #$
-    PIP_BUILD_TRACKER=C:\Users\robert\AppData\Local\Temp\pip-build-tracker-qt4br6co
+    PIP_BUILD_TRACKER=C:\Users\robert\AppData\Local\Temp\pip-build-tracker-0k0ak9t8
   
     #$ PLATFORM=x64
   
@@ -391,7 +339,7 @@
   
     #$ PROGRAMW6432=C:\Program Files
   
-    #$ PROMPT=(.venv) $P$G
+    #$ PROMPT=$P$G
   
     #$ PSMODULEPATH=C:\Program
     Files\WindowsPowerShell\Modules;C:\Windows\system32\WindowsPowerShell\v1.0\Modules;C:\Program
@@ -408,7 +356,7 @@
     #$ PYTHONNOUSERSITE=1
   
     #$
-    PYTHONPATH=C:\Users\robert\AppData\Local\Temp\pip-build-env-yakkzl6i\site
+    PYTHONPATH=C:\Users\robert\AppData\Local\Temp\pip-build-env-7pa7b_86\site
   
     #$ RC=C:/Program Files (x86)/Windows Kits/10/bin/10.0.26100.0/x64/rc.exe
   
@@ -447,10 +395,6 @@
   
     #$ VCTOOLSVERSION=14.51.36231
   
-    #$ VIRTUAL_ENV=C:\Users\robert\Documents\VS Code Files\SABLE-Revamp\.venv
-  
-    #$ VIRTUAL_ENV_PROMPT=(.venv)
-  
     #$ VISUALSTUDIOVERSION=18.0
   
     #$ VS180COMNTOOLS=C:\Program Files (x86)\Microsoft Visual
@@ -486,34 +430,15 @@
   
     #$ WindowsSDKVersion=10.0.26100.0\
   
-    #$ _OLD_VIRTUAL_PATH=C:\Program Files\NVIDIA GPU Computing
-    Toolkit\CUDA\v11.8\bin;C:\Program Files\NVIDIA GPU Computing
-    Toolkit\CUDA\v11.8\libnvvp;;C:\Python312\Scripts\;C:\Python312\;C:\Program
-    Files (x86)\Common Files\Intel\Shared
-    Libraries\redist\intel64\compiler;C:\Windows\system32;C:\Windows;C:\Windows\System32\Wbem;C:\Windows\System32\WindowsPowerShell\v1.0\;C:\Program
-    Files (x86)\NVIDIA
-    Corporation\PhysX\Common;C:\WINDOWS\system32;C:\WINDOWS;C:\WINDOWS\System32\Wbem;C:\WINDOWS\System32\WindowsPowerShell\v1.0\;C:\WINDOWS\System32\OpenSSH\;C:\Program
-    Files\Java\apache-maven-3.9.9\bin;C:\Program Files\NVIDIA
-    Corporation\NVIDIA app\NvDLISR;C:\ffmpeg\bin;C:\Program
-    Files\nodejs\;C:\ProgramData\chocolatey\bin;C:\Program
-    Files\Git\cmd;C:\Program Files\NVIDIA Corporation\Nsight Compute
-    2022.3.0\;C:\Program Files\NVIDIA Corporation\NVIDIA
-    NvDLISR;C:\Users\robert\AppData\Local\Programs\Python\Python314\Scripts\;C:\Users\robert\AppData\Local\Programs\Python\Python314\;C:\Users\robert\AppData\Local\Programs\Python\Python312\Scripts\;C:\Users\robert\AppData\Local\Programs\Python\Python312\;C:\Users\robert\AppData\Local\Programs\Python\Python315\Scripts\;C:\Users\robert\AppData\Local\Programs\Python\Python315\;C:\Users\robert\AppData\Local\Microsoft\WindowsApps;C:\Users\robert\AppData\Local\atom\bin;C:\Users\robert\AppData\Local\Microsoft\WindowsApps;C:\Users\robert\AppData\Local\Programs\Microsoft
-    VS
-    Code\bin;C:\Users\robert\AppData\Roaming\npm;C:\Utilities;C:\Python314\Scripts\;C:\Python314\
-  
-    #$ _OLD_VIRTUAL_PROMPT=$P$G
-  
     #$ _PYPROJECT_HOOKS_BUILD_BACKEND=scikit_build_core.build
   
     #$ __DOTNET_ADD_64BIT=1
   
     #$ __DOTNET_PREFERRED_BITNESS=64
   
-    #$ __VSCMD_PREINIT_PATH=C:\Users\robert\Documents\VS Code
-    Files\SABLE-Revamp\.venv\Scripts;C:\Program Files\NVIDIA GPU Computing
+    #$ __VSCMD_PREINIT_PATH=C:\Program Files\NVIDIA GPU Computing
     Toolkit\CUDA\v11.8\bin;C:\Program Files\NVIDIA GPU Computing
-    Toolkit\CUDA\v11.8\libnvvp;;C:\Python312\Scripts\;C:\Python312\;C:\Program
+    Toolkit\CUDA\v11.8\libnvvp;;;C:\Python312\Scripts\;C:\Python312\;C:\Program
     Files (x86)\Common Files\Intel\Shared
     Libraries\redist\intel64\compiler;C:\Windows\system32;C:\Windows;C:\Windows\System32\Wbem;C:\Windows\System32\WindowsPowerShell\v1.0\;C:\Program
     Files (x86)\NVIDIA
@@ -527,7 +452,7 @@
     VS
     Code\bin;C:\Users\robert\AppData\Roaming\npm;C:\Utilities;C:\Python314\Scripts\;C:\Python314\
   
-    #$ __VSCMD_PREINIT_VCTOOLSVERSION=14.51.36231
+    #$ __VSCMD_PREINIT_VCToolsVersion=14.51.36231
   
     #$ __VSCMD_PREINIT_VS180COMNTOOLS=C:\Program Files (x86)\Microsoft Visual
     Studio\18\BuildTools\Common7\Tools\
@@ -549,7 +474,7 @@
     Studio\18\BuildTools\\MSBuild\Current\Bin\amd64;C:\Windows\Microsoft.NET\Framework64\v4.0.30319;C:\Program
     Files (x86)\Microsoft Visual Studio\18\BuildTools\Common7\IDE\;C:\Program
     Files (x86)\Microsoft Visual
-    Studio\18\BuildTools\Common7\Tools\;C:\Users\robert\AppData\Local\Temp\pip-build-env-yakkzl6i\overlay\Scripts;C:\Users\robert\AppData\Local\Temp\pip-build-env-yakkzl6i\normal\Scripts;C:\Program
+    Studio\18\BuildTools\Common7\Tools\;C:\Users\robert\AppData\Local\Temp\pip-build-env-7pa7b_86\overlay\Scripts;C:\Users\robert\AppData\Local\Temp\pip-build-env-7pa7b_86\normal\Scripts;C:\Program
     Files (x86)\Microsoft Visual
     Studio\18\BuildTools\VC\Tools\MSVC\14.51.36231\bin\HostX64\x64;C:\Program
     Files (x86)\Microsoft Visual
@@ -565,25 +490,9 @@
     Studio\18\BuildTools\\MSBuild\Current\Bin\amd64;C:\Windows\Microsoft.NET\Framework64\v4.0.30319;C:\Program
     Files (x86)\Microsoft Visual Studio\18\BuildTools\Common7\IDE\;C:\Program
     Files (x86)\Microsoft Visual Studio\18\BuildTools\Common7\Tools\;C:\Program
-    Files (x86)\Microsoft Visual
-    Studio\18\BuildTools\VC\Tools\MSVC\14.51.36231\bin\HostX64\x64;C:\Program
-    Files (x86)\Microsoft Visual
-    Studio\18\BuildTools\Common7\IDE\VC\VCPackages;C:\Program Files
-    (x86)\Microsoft Visual
-    Studio\18\BuildTools\Common7\IDE\CommonExtensions\Microsoft\TestWindow;C:\Program
-    Files (x86)\Microsoft Visual
-    Studio\18\BuildTools\MSBuild\Current\bin\Roslyn;C:\Program Files
-    (x86)\Microsoft Visual
-    Studio\18\BuildTools\Common7\IDE\Extensions\Microsoft\CodeCoverage.Console;C:\Program
-    Files (x86)\Windows Kits\10\bin\10.0.26100.0\\x64;C:\Program Files
-    (x86)\Windows Kits\10\bin\\x64;C:\Program Files (x86)\Microsoft Visual
-    Studio\18\BuildTools\\MSBuild\Current\Bin\amd64;C:\Windows\Microsoft.NET\Framework64\v4.0.30319;C:\Program
-    Files (x86)\Microsoft Visual Studio\18\BuildTools\Common7\IDE\;C:\Program
-    Files (x86)\Microsoft Visual
-    Studio\18\BuildTools\Common7\Tools\;C:\Users\robert\Documents\VS Code
-    Files\SABLE-Revamp\.venv\Scripts;C:\Program Files\NVIDIA GPU Computing
-    Toolkit\CUDA\v11.8\bin;C:\Program Files\NVIDIA GPU Computing
-    Toolkit\CUDA\v11.8\libnvvp;;C:\Python312\Scripts\;C:\Python312\;C:\Program
+    Files\NVIDIA GPU Computing Toolkit\CUDA\v11.8\bin;C:\Program Files\NVIDIA
+    GPU Computing
+    Toolkit\CUDA\v11.8\libnvvp;;;C:\Python312\Scripts\;C:\Python312\;C:\Program
     Files (x86)\Common Files\Intel\Shared
     Libraries\redist\intel64\compiler;C:\Windows\system32;C:\Windows;C:\Windows\System32\Wbem;C:\Windows\System32\WindowsPowerShell\v1.0\;C:\Program
     Files (x86)\NVIDIA
@@ -597,13 +506,6 @@
     VS
     Code\bin;C:\Users\robert\AppData\Roaming\npm;C:\Utilities;C:\Python314\Scripts\;C:\Python314\;C:\Program
     Files (x86)\Microsoft Visual
-    Studio\18\BuildTools\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\bin;C:\Program
-    Files (x86)\Microsoft Visual
-    Studio\18\BuildTools\Common7\IDE\CommonExtensions\Microsoft\CMake\Ninja;C:\Program
-    Files (x86)\Microsoft Visual
-    Studio\18\BuildTools\Common7\IDE\VC\Linux\bin\ConnectionManagerExe;C:\Program
-    Files (x86)\Microsoft Visual Studio\18\BuildTools\VC\vcpkg;C:\Program Files
-    (x86)\Microsoft Visual
     Studio\18\BuildTools\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\bin;C:\Program
     Files (x86)\Microsoft Visual
     Studio\18\BuildTools\Common7\IDE\CommonExtensions\Microsoft\CMake\Ninja;C:\Program
@@ -661,7 +563,7 @@
     Studio\18\BuildTools\\MSBuild\Current\Bin\amd64;C:\Windows\Microsoft.NET\Framework64\v4.0.30319;C:\Program
     Files (x86)\Microsoft Visual Studio\18\BuildTools\Common7\IDE\;C:\Program
     Files (x86)\Microsoft Visual
-    Studio\18\BuildTools\Common7\Tools\;C:\Users\robert\AppData\Local\Temp\pip-build-env-yakkzl6i\overlay\Scripts;C:\Users\robert\AppData\Local\Temp\pip-build-env-yakkzl6i\normal\Scripts;C:\Program
+    Studio\18\BuildTools\Common7\Tools\;C:\Users\robert\AppData\Local\Temp\pip-build-env-7pa7b_86\overlay\Scripts;C:\Users\robert\AppData\Local\Temp\pip-build-env-7pa7b_86\normal\Scripts;C:\Program
     Files (x86)\Microsoft Visual
     Studio\18\BuildTools\VC\Tools\MSVC\14.51.36231\bin\HostX64\x64;C:\Program
     Files (x86)\Microsoft Visual
@@ -677,25 +579,9 @@
     Studio\18\BuildTools\\MSBuild\Current\Bin\amd64;C:\Windows\Microsoft.NET\Framework64\v4.0.30319;C:\Program
     Files (x86)\Microsoft Visual Studio\18\BuildTools\Common7\IDE\;C:\Program
     Files (x86)\Microsoft Visual Studio\18\BuildTools\Common7\Tools\;C:\Program
-    Files (x86)\Microsoft Visual
-    Studio\18\BuildTools\VC\Tools\MSVC\14.51.36231\bin\HostX64\x64;C:\Program
-    Files (x86)\Microsoft Visual
-    Studio\18\BuildTools\Common7\IDE\VC\VCPackages;C:\Program Files
-    (x86)\Microsoft Visual
-    Studio\18\BuildTools\Common7\IDE\CommonExtensions\Microsoft\TestWindow;C:\Program
-    Files (x86)\Microsoft Visual
-    Studio\18\BuildTools\MSBuild\Current\bin\Roslyn;C:\Program Files
-    (x86)\Microsoft Visual
-    Studio\18\BuildTools\Common7\IDE\Extensions\Microsoft\CodeCoverage.Console;C:\Program
-    Files (x86)\Windows Kits\10\bin\10.0.26100.0\\x64;C:\Program Files
-    (x86)\Windows Kits\10\bin\\x64;C:\Program Files (x86)\Microsoft Visual
-    Studio\18\BuildTools\\MSBuild\Current\Bin\amd64;C:\Windows\Microsoft.NET\Framework64\v4.0.30319;C:\Program
-    Files (x86)\Microsoft Visual Studio\18\BuildTools\Common7\IDE\;C:\Program
-    Files (x86)\Microsoft Visual
-    Studio\18\BuildTools\Common7\Tools\;C:\Users\robert\Documents\VS Code
-    Files\SABLE-Revamp\.venv\Scripts;C:\Program Files\NVIDIA GPU Computing
-    Toolkit\CUDA\v11.8\bin;C:\Program Files\NVIDIA GPU Computing
-    Toolkit\CUDA\v11.8\libnvvp;;C:\Python312\Scripts\;C:\Python312\;C:\Program
+    Files\NVIDIA GPU Computing Toolkit\CUDA\v11.8\bin;C:\Program Files\NVIDIA
+    GPU Computing
+    Toolkit\CUDA\v11.8\libnvvp;;;C:\Python312\Scripts\;C:\Python312\;C:\Program
     Files (x86)\Common Files\Intel\Shared
     Libraries\redist\intel64\compiler;C:\Windows\system32;C:\Windows;C:\Windows\System32\Wbem;C:\Windows\System32\WindowsPowerShell\v1.0\;C:\Program
     Files (x86)\NVIDIA
@@ -709,13 +595,6 @@
     VS
     Code\bin;C:\Users\robert\AppData\Roaming\npm;C:\Utilities;C:\Python314\Scripts\;C:\Python314\;C:\Program
     Files (x86)\Microsoft Visual
-    Studio\18\BuildTools\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\bin;C:\Program
-    Files (x86)\Microsoft Visual
-    Studio\18\BuildTools\Common7\IDE\CommonExtensions\Microsoft\CMake\Ninja;C:\Program
-    Files (x86)\Microsoft Visual
-    Studio\18\BuildTools\Common7\IDE\VC\Linux\bin\ConnectionManagerExe;C:\Program
-    Files (x86)\Microsoft Visual Studio\18\BuildTools\VC\vcpkg;C:\Program Files
-    (x86)\Microsoft Visual
     Studio\18\BuildTools\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\bin;C:\Program
     Files (x86)\Microsoft Visual
     Studio\18\BuildTools\Common7\IDE\CommonExtensions\Microsoft\CMake\Ninja;C:\Program
@@ -781,8 +660,8 @@
   
   
   
-    (.venv)
-    C:\Users\robert\AppData\Local\Temp\tmpj30hvr_r\build\CMakeFiles\4.3.1-msvc1\CompilerIdCUDA>call
+  
+    C:\Users\robert\AppData\Local\Temp\tmpv19z6vem\build\CMakeFiles\4.3.1-msvc1\CompilerIdCUDA>call
     "C:/Program Files (x86)/Microsoft Visual
     Studio/18/BuildTools/VC/Tools/MSVC/14.51.36231/bin/HostX64/x64/../../../../../../../VC/Auxiliary/Build/vcvars64.bat"
   
@@ -817,8 +696,9 @@
     #$ CHOCOLATEYLASTPATHUPDATE=134323681001501789
   
     #$ CMAKE_ARGS=-G "Ninja" -DGGML_CUDA=on -DCMAKE_CUDA_ARCHITECTURES=52
-    -DCMAKE_CUDA_FLAGS="-allow-unsupported-compiler" -DCUDA_PATH="C:\Program
-    Files\NVIDIA GPU Computing Toolkit\CUDA\v11.8"
+    -DCMAKE_CUDA_FLAGS="-allow-unsupported-compiler"
+    -DCMAKE_CXX_FLAGS="-D_ALLOW_COMPILER_AND_STL_VERSION_MISMATCH"
+    -DCUDA_PATH="C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v11.8"
     -DCUDAToolkit_ROOT="C:\Program Files\NVIDIA GPU Computing
     Toolkit\CUDA\v11.8" -DCUDAToolkit_INCLUDE_DIR="C:\Program Files\NVIDIA GPU
     Computing Toolkit\CUDA\v11.8\include" -DCUDAToolkit_LIBRARY_DIR="C:\Program
@@ -872,14 +752,6 @@
     Kits\10\\include\10.0.26100.0\\um;C:\Program Files (x86)\Windows
     Kits\10\\include\10.0.26100.0\\shared;C:\Program Files (x86)\Windows
     Kits\10\\include\10.0.26100.0\\winrt;C:\Program Files (x86)\Windows
-    Kits\10\\include\10.0.26100.0\\cppwinrt;C:\Program Files (x86)\Microsoft
-    Visual Studio\18\BuildTools\VC\Tools\MSVC\14.51.36231\include;C:\Program
-    Files (x86)\Microsoft Visual
-    Studio\18\BuildTools\VC\Auxiliary\VS\include;C:\Program Files (x86)\Windows
-    Kits\10\include\10.0.26100.0\ucrt;C:\Program Files (x86)\Windows
-    Kits\10\\include\10.0.26100.0\\um;C:\Program Files (x86)\Windows
-    Kits\10\\include\10.0.26100.0\\shared;C:\Program Files (x86)\Windows
-    Kits\10\\include\10.0.26100.0\\winrt;C:\Program Files (x86)\Windows
     Kits\10\\include\10.0.26100.0\\cppwinrt
   
     #$ FORCE_CMAKE=1
@@ -914,14 +786,6 @@
     Kits\10\\include\10.0.26100.0\\um;C:\Program Files (x86)\Windows
     Kits\10\\include\10.0.26100.0\\shared;C:\Program Files (x86)\Windows
     Kits\10\\include\10.0.26100.0\\winrt;C:\Program Files (x86)\Windows
-    Kits\10\\include\10.0.26100.0\\cppwinrt;C:\Program Files (x86)\Microsoft
-    Visual Studio\18\BuildTools\VC\Tools\MSVC\14.51.36231\include;C:\Program
-    Files (x86)\Microsoft Visual
-    Studio\18\BuildTools\VC\Auxiliary\VS\include;C:\Program Files (x86)\Windows
-    Kits\10\include\10.0.26100.0\ucrt;C:\Program Files (x86)\Windows
-    Kits\10\\include\10.0.26100.0\\um;C:\Program Files (x86)\Windows
-    Kits\10\\include\10.0.26100.0\\shared;C:\Program Files (x86)\Windows
-    Kits\10\\include\10.0.26100.0\\winrt;C:\Program Files (x86)\Windows
     Kits\10\\include\10.0.26100.0\\cppwinrt
   
     #$ INTEL_DEV_REDIST=C:\Program Files (x86)\Common Files\Intel\Shared
@@ -934,20 +798,9 @@
     (x86)\Microsoft Visual
     Studio\18\BuildTools\VC\Tools\MSVC\14.51.36231\lib\x64;C:\Program Files
     (x86)\Windows Kits\10\lib\10.0.26100.0\ucrt\x64;C:\Program Files
-    (x86)\Windows Kits\10\\lib\10.0.26100.0\\um\x64;C:\Program Files
-    (x86)\Microsoft Visual
-    Studio\18\BuildTools\VC\Tools\MSVC\14.51.36231\lib\x64;C:\Program Files
-    (x86)\Windows Kits\10\lib\10.0.26100.0\ucrt\x64;C:\Program Files
     (x86)\Windows Kits\10\\lib\10.0.26100.0\\um\x64
   
     #$ LIBPATH=C:\Program Files (x86)\Microsoft Visual
-    Studio\18\BuildTools\VC\Tools\MSVC\14.51.36231\lib\x64;C:\Program Files
-    (x86)\Microsoft Visual
-    Studio\18\BuildTools\VC\Tools\MSVC\14.51.36231\lib\x86\store\references;C:\Program
-    Files (x86)\Windows Kits\10\UnionMetadata\10.0.26100.0;C:\Program Files
-    (x86)\Windows
-    Kits\10\References\10.0.26100.0;C:\Windows\Microsoft.NET\Framework64\v4.0.30319;C:\Program
-    Files (x86)\Microsoft Visual
     Studio\18\BuildTools\VC\Tools\MSVC\14.51.36231\lib\x64;C:\Program Files
     (x86)\Microsoft Visual
     Studio\18\BuildTools\VC\Tools\MSVC\14.51.36231\lib\x86\store\references;C:\Program
@@ -974,9 +827,6 @@
     #$ MOZ_PLUGIN_PATH=C:\Program Files (x86)\Foxit Software\Foxit PDF
     Reader\plugins\
   
-    #$ MSVC_BIN=C:\Program Files (x86)\Microsoft Visual
-    Studio\18\BuildTools\VC\Tools\MSVC\14.51.36231\bin\Hostx64\x64
-  
     #$ NUMBER_OF_PROCESSORS=8
   
     #$ NVTOOLSEXT_PATH=C:\Program Files\NVIDIA Corporation\NvToolsExt\
@@ -1000,7 +850,7 @@
     Studio\18\BuildTools\\MSBuild\Current\Bin\amd64;C:\Windows\Microsoft.NET\Framework64\v4.0.30319;C:\Program
     Files (x86)\Microsoft Visual Studio\18\BuildTools\Common7\IDE\;C:\Program
     Files (x86)\Microsoft Visual
-    Studio\18\BuildTools\Common7\Tools\;C:\Users\robert\AppData\Local\Temp\pip-build-env-yakkzl6i\overlay\Scripts;C:\Users\robert\AppData\Local\Temp\pip-build-env-yakkzl6i\normal\Scripts;C:\Program
+    Studio\18\BuildTools\Common7\Tools\;C:\Users\robert\AppData\Local\Temp\pip-build-env-7pa7b_86\overlay\Scripts;C:\Users\robert\AppData\Local\Temp\pip-build-env-7pa7b_86\normal\Scripts;C:\Program
     Files (x86)\Microsoft Visual
     Studio\18\BuildTools\VC\Tools\MSVC\14.51.36231\bin\HostX64\x64;C:\Program
     Files (x86)\Microsoft Visual
@@ -1016,25 +866,9 @@
     Studio\18\BuildTools\\MSBuild\Current\Bin\amd64;C:\Windows\Microsoft.NET\Framework64\v4.0.30319;C:\Program
     Files (x86)\Microsoft Visual Studio\18\BuildTools\Common7\IDE\;C:\Program
     Files (x86)\Microsoft Visual Studio\18\BuildTools\Common7\Tools\;C:\Program
-    Files (x86)\Microsoft Visual
-    Studio\18\BuildTools\VC\Tools\MSVC\14.51.36231\bin\HostX64\x64;C:\Program
-    Files (x86)\Microsoft Visual
-    Studio\18\BuildTools\Common7\IDE\VC\VCPackages;C:\Program Files
-    (x86)\Microsoft Visual
-    Studio\18\BuildTools\Common7\IDE\CommonExtensions\Microsoft\TestWindow;C:\Program
-    Files (x86)\Microsoft Visual
-    Studio\18\BuildTools\MSBuild\Current\bin\Roslyn;C:\Program Files
-    (x86)\Microsoft Visual
-    Studio\18\BuildTools\Common7\IDE\Extensions\Microsoft\CodeCoverage.Console;C:\Program
-    Files (x86)\Windows Kits\10\bin\10.0.26100.0\\x64;C:\Program Files
-    (x86)\Windows Kits\10\bin\\x64;C:\Program Files (x86)\Microsoft Visual
-    Studio\18\BuildTools\\MSBuild\Current\Bin\amd64;C:\Windows\Microsoft.NET\Framework64\v4.0.30319;C:\Program
-    Files (x86)\Microsoft Visual Studio\18\BuildTools\Common7\IDE\;C:\Program
-    Files (x86)\Microsoft Visual
-    Studio\18\BuildTools\Common7\Tools\;C:\Users\robert\Documents\VS Code
-    Files\SABLE-Revamp\.venv\Scripts;C:\Program Files\NVIDIA GPU Computing
-    Toolkit\CUDA\v11.8\bin;C:\Program Files\NVIDIA GPU Computing
-    Toolkit\CUDA\v11.8\libnvvp;;C:\Python312\Scripts\;C:\Python312\;C:\Program
+    Files\NVIDIA GPU Computing Toolkit\CUDA\v11.8\bin;C:\Program Files\NVIDIA
+    GPU Computing
+    Toolkit\CUDA\v11.8\libnvvp;;;C:\Python312\Scripts\;C:\Python312\;C:\Program
     Files (x86)\Common Files\Intel\Shared
     Libraries\redist\intel64\compiler;C:\Windows\system32;C:\Windows;C:\Windows\System32\Wbem;C:\Windows\System32\WindowsPowerShell\v1.0\;C:\Program
     Files (x86)\NVIDIA
@@ -1060,19 +894,12 @@
     Studio\18\BuildTools\Common7\IDE\CommonExtensions\Microsoft\CMake\Ninja;C:\Program
     Files (x86)\Microsoft Visual
     Studio\18\BuildTools\Common7\IDE\VC\Linux\bin\ConnectionManagerExe;C:\Program
-    Files (x86)\Microsoft Visual Studio\18\BuildTools\VC\vcpkg;C:\Program Files
-    (x86)\Microsoft Visual
-    Studio\18\BuildTools\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\bin;C:\Program
-    Files (x86)\Microsoft Visual
-    Studio\18\BuildTools\Common7\IDE\CommonExtensions\Microsoft\CMake\Ninja;C:\Program
-    Files (x86)\Microsoft Visual
-    Studio\18\BuildTools\Common7\IDE\VC\Linux\bin\ConnectionManagerExe;C:\Program
     Files (x86)\Microsoft Visual Studio\18\BuildTools\VC\vcpkg
   
     #$ PATHEXT=.COM;.EXE;.BAT;.CMD;.VBS;.VBE;.JS;.JSE;.WSF;.WSH;.MSC;.PY;.PYW
   
     #$
-    PIP_BUILD_TRACKER=C:\Users\robert\AppData\Local\Temp\pip-build-tracker-qt4br6co
+    PIP_BUILD_TRACKER=C:\Users\robert\AppData\Local\Temp\pip-build-tracker-0k0ak9t8
   
     #$ PLATFORM=x64
   
@@ -1092,7 +919,7 @@
   
     #$ PROGRAMW6432=C:\Program Files
   
-    #$ PROMPT=(.venv) $P$G
+    #$ PROMPT=$P$G
   
     #$ PSMODULEPATH=C:\Program
     Files\WindowsPowerShell\Modules;C:\Windows\system32\WindowsPowerShell\v1.0\Modules;C:\Program
@@ -1109,7 +936,7 @@
     #$ PYTHONNOUSERSITE=1
   
     #$
-    PYTHONPATH=C:\Users\robert\AppData\Local\Temp\pip-build-env-yakkzl6i\site
+    PYTHONPATH=C:\Users\robert\AppData\Local\Temp\pip-build-env-7pa7b_86\site
   
     #$ RC=C:/Program Files (x86)/Windows Kits/10/bin/10.0.26100.0/x64/rc.exe
   
@@ -1148,10 +975,6 @@
   
     #$ VCTOOLSVERSION=14.51.36231
   
-    #$ VIRTUAL_ENV=C:\Users\robert\Documents\VS Code Files\SABLE-Revamp\.venv
-  
-    #$ VIRTUAL_ENV_PROMPT=(.venv)
-  
     #$ VISUALSTUDIOVERSION=18.0
   
     #$ VS180COMNTOOLS=C:\Program Files (x86)\Microsoft Visual
@@ -1187,34 +1010,15 @@
   
     #$ WindowsSDKVersion=10.0.26100.0\
   
-    #$ _OLD_VIRTUAL_PATH=C:\Program Files\NVIDIA GPU Computing
-    Toolkit\CUDA\v11.8\bin;C:\Program Files\NVIDIA GPU Computing
-    Toolkit\CUDA\v11.8\libnvvp;;C:\Python312\Scripts\;C:\Python312\;C:\Program
-    Files (x86)\Common Files\Intel\Shared
-    Libraries\redist\intel64\compiler;C:\Windows\system32;C:\Windows;C:\Windows\System32\Wbem;C:\Windows\System32\WindowsPowerShell\v1.0\;C:\Program
-    Files (x86)\NVIDIA
-    Corporation\PhysX\Common;C:\WINDOWS\system32;C:\WINDOWS;C:\WINDOWS\System32\Wbem;C:\WINDOWS\System32\WindowsPowerShell\v1.0\;C:\WINDOWS\System32\OpenSSH\;C:\Program
-    Files\Java\apache-maven-3.9.9\bin;C:\Program Files\NVIDIA
-    Corporation\NVIDIA app\NvDLISR;C:\ffmpeg\bin;C:\Program
-    Files\nodejs\;C:\ProgramData\chocolatey\bin;C:\Program
-    Files\Git\cmd;C:\Program Files\NVIDIA Corporation\Nsight Compute
-    2022.3.0\;C:\Program Files\NVIDIA Corporation\NVIDIA
-    NvDLISR;C:\Users\robert\AppData\Local\Programs\Python\Python314\Scripts\;C:\Users\robert\AppData\Local\Programs\Python\Python314\;C:\Users\robert\AppData\Local\Programs\Python\Python312\Scripts\;C:\Users\robert\AppData\Local\Programs\Python\Python312\;C:\Users\robert\AppData\Local\Programs\Python\Python315\Scripts\;C:\Users\robert\AppData\Local\Programs\Python\Python315\;C:\Users\robert\AppData\Local\Microsoft\WindowsApps;C:\Users\robert\AppData\Local\atom\bin;C:\Users\robert\AppData\Local\Microsoft\WindowsApps;C:\Users\robert\AppData\Local\Programs\Microsoft
-    VS
-    Code\bin;C:\Users\robert\AppData\Roaming\npm;C:\Utilities;C:\Python314\Scripts\;C:\Python314\
-  
-    #$ _OLD_VIRTUAL_PROMPT=$P$G
-  
     #$ _PYPROJECT_HOOKS_BUILD_BACKEND=scikit_build_core.build
   
     #$ __DOTNET_ADD_64BIT=1
   
     #$ __DOTNET_PREFERRED_BITNESS=64
   
-    #$ __VSCMD_PREINIT_PATH=C:\Users\robert\Documents\VS Code
-    Files\SABLE-Revamp\.venv\Scripts;C:\Program Files\NVIDIA GPU Computing
+    #$ __VSCMD_PREINIT_PATH=C:\Program Files\NVIDIA GPU Computing
     Toolkit\CUDA\v11.8\bin;C:\Program Files\NVIDIA GPU Computing
-    Toolkit\CUDA\v11.8\libnvvp;;C:\Python312\Scripts\;C:\Python312\;C:\Program
+    Toolkit\CUDA\v11.8\libnvvp;;;C:\Python312\Scripts\;C:\Python312\;C:\Program
     Files (x86)\Common Files\Intel\Shared
     Libraries\redist\intel64\compiler;C:\Windows\system32;C:\Windows;C:\Windows\System32\Wbem;C:\Windows\System32\WindowsPowerShell\v1.0\;C:\Program
     Files (x86)\NVIDIA
@@ -1228,7 +1032,7 @@
     VS
     Code\bin;C:\Users\robert\AppData\Roaming\npm;C:\Utilities;C:\Python314\Scripts\;C:\Python314\
   
-    #$ __VSCMD_PREINIT_VCTOOLSVERSION=14.51.36231
+    #$ __VSCMD_PREINIT_VCToolsVersion=14.51.36231
   
     #$ __VSCMD_PREINIT_VS180COMNTOOLS=C:\Program Files (x86)\Microsoft Visual
     Studio\18\BuildTools\Common7\Tools\
@@ -1250,7 +1054,7 @@
     Studio\18\BuildTools\\MSBuild\Current\Bin\amd64;C:\Windows\Microsoft.NET\Framework64\v4.0.30319;C:\Program
     Files (x86)\Microsoft Visual Studio\18\BuildTools\Common7\IDE\;C:\Program
     Files (x86)\Microsoft Visual
-    Studio\18\BuildTools\Common7\Tools\;C:\Users\robert\AppData\Local\Temp\pip-build-env-yakkzl6i\overlay\Scripts;C:\Users\robert\AppData\Local\Temp\pip-build-env-yakkzl6i\normal\Scripts;C:\Program
+    Studio\18\BuildTools\Common7\Tools\;C:\Users\robert\AppData\Local\Temp\pip-build-env-7pa7b_86\overlay\Scripts;C:\Users\robert\AppData\Local\Temp\pip-build-env-7pa7b_86\normal\Scripts;C:\Program
     Files (x86)\Microsoft Visual
     Studio\18\BuildTools\VC\Tools\MSVC\14.51.36231\bin\HostX64\x64;C:\Program
     Files (x86)\Microsoft Visual
@@ -1266,25 +1070,9 @@
     Studio\18\BuildTools\\MSBuild\Current\Bin\amd64;C:\Windows\Microsoft.NET\Framework64\v4.0.30319;C:\Program
     Files (x86)\Microsoft Visual Studio\18\BuildTools\Common7\IDE\;C:\Program
     Files (x86)\Microsoft Visual Studio\18\BuildTools\Common7\Tools\;C:\Program
-    Files (x86)\Microsoft Visual
-    Studio\18\BuildTools\VC\Tools\MSVC\14.51.36231\bin\HostX64\x64;C:\Program
-    Files (x86)\Microsoft Visual
-    Studio\18\BuildTools\Common7\IDE\VC\VCPackages;C:\Program Files
-    (x86)\Microsoft Visual
-    Studio\18\BuildTools\Common7\IDE\CommonExtensions\Microsoft\TestWindow;C:\Program
-    Files (x86)\Microsoft Visual
-    Studio\18\BuildTools\MSBuild\Current\bin\Roslyn;C:\Program Files
-    (x86)\Microsoft Visual
-    Studio\18\BuildTools\Common7\IDE\Extensions\Microsoft\CodeCoverage.Console;C:\Program
-    Files (x86)\Windows Kits\10\bin\10.0.26100.0\\x64;C:\Program Files
-    (x86)\Windows Kits\10\bin\\x64;C:\Program Files (x86)\Microsoft Visual
-    Studio\18\BuildTools\\MSBuild\Current\Bin\amd64;C:\Windows\Microsoft.NET\Framework64\v4.0.30319;C:\Program
-    Files (x86)\Microsoft Visual Studio\18\BuildTools\Common7\IDE\;C:\Program
-    Files (x86)\Microsoft Visual
-    Studio\18\BuildTools\Common7\Tools\;C:\Users\robert\Documents\VS Code
-    Files\SABLE-Revamp\.venv\Scripts;C:\Program Files\NVIDIA GPU Computing
-    Toolkit\CUDA\v11.8\bin;C:\Program Files\NVIDIA GPU Computing
-    Toolkit\CUDA\v11.8\libnvvp;;C:\Python312\Scripts\;C:\Python312\;C:\Program
+    Files\NVIDIA GPU Computing Toolkit\CUDA\v11.8\bin;C:\Program Files\NVIDIA
+    GPU Computing
+    Toolkit\CUDA\v11.8\libnvvp;;;C:\Python312\Scripts\;C:\Python312\;C:\Program
     Files (x86)\Common Files\Intel\Shared
     Libraries\redist\intel64\compiler;C:\Windows\system32;C:\Windows;C:\Windows\System32\Wbem;C:\Windows\System32\WindowsPowerShell\v1.0\;C:\Program
     Files (x86)\NVIDIA
@@ -1298,13 +1086,6 @@
     VS
     Code\bin;C:\Users\robert\AppData\Roaming\npm;C:\Utilities;C:\Python314\Scripts\;C:\Python314\;C:\Program
     Files (x86)\Microsoft Visual
-    Studio\18\BuildTools\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\bin;C:\Program
-    Files (x86)\Microsoft Visual
-    Studio\18\BuildTools\Common7\IDE\CommonExtensions\Microsoft\CMake\Ninja;C:\Program
-    Files (x86)\Microsoft Visual
-    Studio\18\BuildTools\Common7\IDE\VC\Linux\bin\ConnectionManagerExe;C:\Program
-    Files (x86)\Microsoft Visual Studio\18\BuildTools\VC\vcpkg;C:\Program Files
-    (x86)\Microsoft Visual
     Studio\18\BuildTools\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\bin;C:\Program
     Files (x86)\Microsoft Visual
     Studio\18\BuildTools\Common7\IDE\CommonExtensions\Microsoft\CMake\Ninja;C:\Program
@@ -1362,7 +1143,7 @@
     Studio\18\BuildTools\\MSBuild\Current\Bin\amd64;C:\Windows\Microsoft.NET\Framework64\v4.0.30319;C:\Program
     Files (x86)\Microsoft Visual Studio\18\BuildTools\Common7\IDE\;C:\Program
     Files (x86)\Microsoft Visual
-    Studio\18\BuildTools\Common7\Tools\;C:\Users\robert\AppData\Local\Temp\pip-build-env-yakkzl6i\overlay\Scripts;C:\Users\robert\AppData\Local\Temp\pip-build-env-yakkzl6i\normal\Scripts;C:\Program
+    Studio\18\BuildTools\Common7\Tools\;C:\Users\robert\AppData\Local\Temp\pip-build-env-7pa7b_86\overlay\Scripts;C:\Users\robert\AppData\Local\Temp\pip-build-env-7pa7b_86\normal\Scripts;C:\Program
     Files (x86)\Microsoft Visual
     Studio\18\BuildTools\VC\Tools\MSVC\14.51.36231\bin\HostX64\x64;C:\Program
     Files (x86)\Microsoft Visual
@@ -1378,25 +1159,9 @@
     Studio\18\BuildTools\\MSBuild\Current\Bin\amd64;C:\Windows\Microsoft.NET\Framework64\v4.0.30319;C:\Program
     Files (x86)\Microsoft Visual Studio\18\BuildTools\Common7\IDE\;C:\Program
     Files (x86)\Microsoft Visual Studio\18\BuildTools\Common7\Tools\;C:\Program
-    Files (x86)\Microsoft Visual
-    Studio\18\BuildTools\VC\Tools\MSVC\14.51.36231\bin\HostX64\x64;C:\Program
-    Files (x86)\Microsoft Visual
-    Studio\18\BuildTools\Common7\IDE\VC\VCPackages;C:\Program Files
-    (x86)\Microsoft Visual
-    Studio\18\BuildTools\Common7\IDE\CommonExtensions\Microsoft\TestWindow;C:\Program
-    Files (x86)\Microsoft Visual
-    Studio\18\BuildTools\MSBuild\Current\bin\Roslyn;C:\Program Files
-    (x86)\Microsoft Visual
-    Studio\18\BuildTools\Common7\IDE\Extensions\Microsoft\CodeCoverage.Console;C:\Program
-    Files (x86)\Windows Kits\10\bin\10.0.26100.0\\x64;C:\Program Files
-    (x86)\Windows Kits\10\bin\\x64;C:\Program Files (x86)\Microsoft Visual
-    Studio\18\BuildTools\\MSBuild\Current\Bin\amd64;C:\Windows\Microsoft.NET\Framework64\v4.0.30319;C:\Program
-    Files (x86)\Microsoft Visual Studio\18\BuildTools\Common7\IDE\;C:\Program
-    Files (x86)\Microsoft Visual
-    Studio\18\BuildTools\Common7\Tools\;C:\Users\robert\Documents\VS Code
-    Files\SABLE-Revamp\.venv\Scripts;C:\Program Files\NVIDIA GPU Computing
-    Toolkit\CUDA\v11.8\bin;C:\Program Files\NVIDIA GPU Computing
-    Toolkit\CUDA\v11.8\libnvvp;;C:\Python312\Scripts\;C:\Python312\;C:\Program
+    Files\NVIDIA GPU Computing Toolkit\CUDA\v11.8\bin;C:\Program Files\NVIDIA
+    GPU Computing
+    Toolkit\CUDA\v11.8\libnvvp;;;C:\Python312\Scripts\;C:\Python312\;C:\Program
     Files (x86)\Common Files\Intel\Shared
     Libraries\redist\intel64\compiler;C:\Windows\system32;C:\Windows;C:\Windows\System32\Wbem;C:\Windows\System32\WindowsPowerShell\v1.0\;C:\Program
     Files (x86)\NVIDIA
@@ -1410,13 +1175,6 @@
     VS
     Code\bin;C:\Users\robert\AppData\Roaming\npm;C:\Utilities;C:\Python314\Scripts\;C:\Python314\;C:\Program
     Files (x86)\Microsoft Visual
-    Studio\18\BuildTools\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\bin;C:\Program
-    Files (x86)\Microsoft Visual
-    Studio\18\BuildTools\Common7\IDE\CommonExtensions\Microsoft\CMake\Ninja;C:\Program
-    Files (x86)\Microsoft Visual
-    Studio\18\BuildTools\Common7\IDE\VC\Linux\bin\ConnectionManagerExe;C:\Program
-    Files (x86)\Microsoft Visual Studio\18\BuildTools\VC\vcpkg;C:\Program Files
-    (x86)\Microsoft Visual
     Studio\18\BuildTools\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\bin;C:\Program
     Files (x86)\Microsoft Visual
     Studio\18\BuildTools\Common7\IDE\CommonExtensions\Microsoft\CMake\Ninja;C:\Program
@@ -1455,7 +1213,7 @@
     Studio/18/BuildTools/VC/Tools/MSVC/14.51.36231/bin/HostX64/x64/../../../../../../.."
     --sdk_dir "C:/Program Files (x86)/Windows Kits/10/" --display_error_number
     --orig_src_file_name "CMakeCUDACompilerId.cu" --orig_src_path_name
-    "C:\Users\robert\AppData\Local\Temp\tmpj30hvr_r\build\CMakeFiles\4.3.1-msvc1\CompilerIdCUDA\CMakeCUDACompilerId.cu"
+    "C:\Users\robert\AppData\Local\Temp\tmpv19z6vem\build\CMakeFiles\4.3.1-msvc1\CompilerIdCUDA\CMakeCUDACompilerId.cu"
     --allow_managed -arch compute_52 -m64 --no-version-ident -ftz=0 -prec_div=1
     -prec_sqrt=1 -fmad=1 --include_file_name "CMakeCUDACompilerId.fatbin.c"
     -tused --gen_module_id_file --module_id_file_name
@@ -1546,8 +1304,7 @@
   
   note: This error originates from a subprocess, and is likely not a problem with pip.
   ERROR: Failed building wheel for llama-cpp-python
-error: failed-wheel-build-for-install
 
-Failed to build installable wheels for some pyproject.toml based projects
-
-llama-cpp-python
+[notice] A new release of pip is available: 25.0.1 -> 26.2.1
+[notice] To update, run: python.exe -m pip install --upgrade pip
+ERROR: Failed to build installable wheels for some pyproject.toml based projects (llama-cpp-python)
