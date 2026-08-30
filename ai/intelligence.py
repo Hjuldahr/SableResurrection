@@ -120,7 +120,6 @@ def read_file(
     tokenizer: LlamaTokenizer,
     max_tokens: int = 2000,
 ) -> str:
-    # TODO resolve llm reference
     """Read a text file, truncating at max_tokens."""
 
     path = Path(file_id)
