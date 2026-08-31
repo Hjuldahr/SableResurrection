@@ -4,7 +4,11 @@ import mimetypes
 from pathlib import Path
 from llama_cpp import Llama
 
-ROOT = Path(__file__).parents[1].resolve() / 'files'
+WORKSPACE_ROOT = Path(__file__).parents[1].resolve() / 'file-workspace'
+GENERATED_ROOT = (WORKSPACE_ROOT / "generated").resolve()
+
+def is_sanctioned_file(path: Path) -> bool:
+    return not path.is_symlink() and path.is_file() and path.resolve().is_relative_to(WORKSPACE_ROOT)
 
 class FileHandler:
     def __init__(
@@ -32,6 +36,9 @@ class FileHandler:
     def _validate_utf_file(self, file: Path) -> bool:
         """Performs a lightweight check for readable, non-empty UTF-8 text."""
         try:
+            if not is_sanctioned_file(file):
+                return False
+            
             if file.stat().st_size == 0:
                 return False
 
@@ -152,30 +159,36 @@ Rules:
 
         return response["choices"][0]["text"].strip()
     
+def _inside_generated(child: Path) -> bool:
+    return child.resolve().is_relative_to(GENERATED_ROOT)
+    
 def write_file(
     filename: str,
     file_content: str,
     *,
     append: bool = True,
 ) -> str:
-    path = ROOT / filename # should already be terminal
+    path = GENERATED_ROOT / filename
 
-    if not path.resolve().is_relative_to(ROOT):
-        return "ERROR: File path is outside the permitted directory."
-
-    mode = "a" if append else "w"
+    if not _inside_generated(path):
+        return "WARNING: Filepath is outside the permitted generated workspace."
 
     try:
+        path.parent.mkdir(exist_ok=True, parents=True)
+
+        mode = "a" if append else "w"
+
         with path.open(mode, encoding="utf-8", newline="\n") as f:
             f.write(file_content)
 
         action = "appended" if append else "wrote"
-        return f"Successfully {action} to file {filename}"
+        return f"INFO: Successfully {action} to file {filename}"
 
     except OSError as exc:
         print(f"Failed to write file {filename}: {exc}")
         return (
-            f"ERROR: Failed to {'append' if append else 'write'} to file {filename}: {exc}"
+            f"ERROR: Failed to {'append' if append else 'write'} "
+            f"to file {filename}: {exc}"
         )
         
 def format_size(size_in_bytes: int) -> str:
@@ -195,22 +208,15 @@ def format_size(size_in_bytes: int) -> str:
 
     return f"{value:.1f} {units[i]}" if i else f"{size_in_bytes} B"
         
-# WIP
-def list_files() -> str:
+def browse_file_candidates(glob: str = "*") -> str:
     data = []
     
-    for file in ROOT.iterdir():
-        if not file.is_file():
+    if not WORKSPACE_ROOT.exists():
+        return "WARNING: File workspace has not been initialized yet."
+    
+    for file in WORKSPACE_ROOT.rglob(glob, case_sensitive=False):
+        if not is_sanctioned_file(file):
             continue
-            
-        try:
-            with file.open("r", encoding="utf-8", errors="ignore") as f:
-                preview = f.readline(512).strip()
-        except OSError:
-            continue
-
-        mime_type, _ = mimetypes.guess_type(file.name)
-        mime = mime_type or "unknown"
         
         try:
             stats = file.stat()
@@ -220,10 +226,20 @@ def list_files() -> str:
             size = format_size(stats.st_size)
         except OSError:
             continue
-        
-        # Using a clean format string with readable separation
+
+        try:
+            with file.open("r", encoding="utf-8") as f:
+                preview = f.readline(256).strip()
+        except (OSError, UnicodeDecodeError):
+            continue
+
+        mime_type, _ = mimetypes.guess_type(file.name)
+        mime = mime_type or "unknown"
+
+        loc = str(file.relative_to(WORKSPACE_ROOT))
+
         data.append(
-            f"- filename: {file.name}, " 
+            f"- location: {loc}, " 
             f"mime: {mime}, "
             f"size: {size}, "
             f"created-at: {ctime.isoformat()}, " 
@@ -232,4 +248,9 @@ def list_files() -> str:
             f"preview: {preview}"
         )
         
+    if not data:
+        return f"INFO: No files were found for the glob pattern: {glob}."
+        
     return '\n'.join(data)
+
+print(browse_file_candidates())
