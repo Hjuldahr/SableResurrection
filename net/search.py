@@ -2,19 +2,17 @@ from __future__ import annotations
 
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
-
+from collections.abc import Iterator
 import requests
 import trafilatura
 from ddgs import DDGS
 from llama_cpp import Llama
-
 
 @dataclass(slots=True)
 class SearchResult:
     title: str
     url: str
     snippet: str
-
 
 class QuerySummarizer:
     def __init__(
@@ -23,12 +21,19 @@ class QuerySummarizer:
         *,
         max_results: int = 10,
         max_source_tokens: int = 4000,
-        max_tokens: int = 350,
+        max_output_tokens: int = 350,
     ) -> None:
+        if max_results < 1:
+            raise ValueError("max_results must be at least 1")
+        if max_source_tokens < 1:
+            raise ValueError("max_source_tokens must be at least 1")
+        if max_output_tokens < 1:
+            raise ValueError("max_output_tokens must be at least 1")
+        
         self.llm = llm
         self.max_results = max_results
         self.max_source_tokens = max_source_tokens
-        self.max_tokens = max_tokens
+        self.max_output_tokens = max_output_tokens
 
     def search(self, query: str) -> list[SearchResult]:
         """Search the web for relevant pages."""
@@ -83,7 +88,7 @@ class QuerySummarizer:
         """Fetch pages concurrently."""
 
         with ThreadPoolExecutor(
-            max_workers=min(8, len(results))
+            max_workers=min(len(results), 10)
         ) as executor:
             pages = executor.map(self.fetch, results)
 
@@ -93,31 +98,44 @@ class QuerySummarizer:
             if text
         ]
 
+    @staticmethod
+    def _get_line(text: str) -> Iterator[str]:
+        i = 0
+        n = len(text)
+
+        while i < n:
+            j = text.find("\n", i)
+
+            if j == -1:
+                j = n
+            else:
+                j += 1
+
+            yield text[i:j]
+            i = j
+
     def _truncate(
         self,
         text: str,
-        max_tokens: int,
+        max_site_tokens: int,
     ) -> str:
-        """Truncate text to max_tokens while preserving whole lines where possible."""
-
-        rough_char_ceiling = max_tokens * 8
-        text = text[:rough_char_ceiling]
-
+        """Truncate text to max_site_tokens while preserving whole lines where possible."""
         token_count = 0
         char_count = 0
+        
+        text = text[:max_site_tokens * 12]
 
-        for line in text.splitlines(keepends=True):
+        for line in self._get_line(text):
             line_tokens = self.llm.tokenize(line.encode("utf-8"))
             line_token_count = len(line_tokens)
 
-            remaining = max_tokens - token_count
+            remaining = max_site_tokens - token_count
 
             if line_token_count <= remaining:
                 token_count += line_token_count
                 char_count += len(line)
                 continue
 
-            # The line does not fit completely. Keep as much of it as possible.
             if remaining > 0:
                 tokens = line_tokens[:remaining]
                 truncated_line = self.llm.detokenize(tokens).decode(
@@ -197,7 +215,7 @@ Rules:
 
         response = self.llm(
             prompt,
-            max_tokens=self.max_tokens,
+            max_tokens=self.max_output_tokens,
             temperature=0.3,
             stop=["</s>"],
         )

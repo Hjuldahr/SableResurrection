@@ -2,7 +2,7 @@ from llama_cpp import Llama
 from search import QuerySummarizer 
 
 llm = Llama(
-    model_path="../llm/microsoft_Phi-4-mini-instruct-Q4_K_M.gguf", 
+    "C:\\Users\\robert\\Documents\\VS Code Files\\SABLE-Revamp\\llm\\microsoft_Phi-4-mini-instruct-Q4_K_M.gguf",
     n_ctx=16000, 
     n_threads=4,
     n_gpu_layers=18, # 15 to 20
@@ -13,7 +13,7 @@ llm = Llama(
 
 summarizer = QuerySummarizer(llm) 
 
-query = "What is carcinization?"
+query = "Why did Hitler hate jews?"
 
 print(query)
 print(summarizer(query))

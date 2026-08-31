@@ -1,5 +1,10 @@
+from datetime import datetime, timezone
+import math
+import mimetypes
 from pathlib import Path
 from llama_cpp import Llama
+
+ROOT = Path(__file__).parents[1].resolve() / 'files'
 
 class FileHandler:
     def __init__(
@@ -27,13 +32,12 @@ class FileHandler:
     def _validate_utf_file(self, file: Path) -> bool:
         """Performs a lightweight check for readable, non-empty UTF-8 text."""
         try:
+            if file.stat().st_size == 0:
+                return False
+
             with file.open(mode="r", encoding="utf-8") as f:
-                # Sample the start of the file to catch invalid encodings
-                chunk = f.read(1024)
-                
-                # Returns True if file has content & lacks null bytes (binary marker)
-                return bool(chunk) and "\x00" not in chunk
-                
+                return "\x00" not in f.read(1024)
+
         except (OSError, UnicodeDecodeError):
             return False
 
@@ -125,18 +129,16 @@ Summarize the text below.
 
 {source_text}
 
-Write one concise paragraph that explains the content of the text files.
+Write one informational paragraph that explains the content of the text files.
 
 Rules:
-- Use only facts and figures from the supplied information.
+- Do not repeat these instructions, or output text that describes these constraints.
+- Use only facts explicitly supported by the supplied information.
 - Do not use outside knowledge.
 - Preserve important qualifications and uncertainty.
 - If the information disagrees, briefly acknowledge the disagreement.
-- Do not mention the search process.
-- Do not repeat these instructions.
 - Do not use headings, bullets, labels, or meta-commentary.
 - Do not use quotation marks.
-- Do not use the words source or sources.
 - End with a complete sentence.
 - Output only the paragraph.
 """
@@ -149,3 +151,85 @@ Rules:
         )
 
         return response["choices"][0]["text"].strip()
+    
+def write_file(
+    filename: str,
+    file_content: str,
+    *,
+    append: bool = True,
+) -> str:
+    path = ROOT / filename # should already be terminal
+
+    if not path.resolve().is_relative_to(ROOT):
+        return "ERROR: File path is outside the permitted directory."
+
+    mode = "a" if append else "w"
+
+    try:
+        with path.open(mode, encoding="utf-8", newline="\n") as f:
+            f.write(file_content)
+
+        action = "appended" if append else "wrote"
+        return f"Successfully {action} to file {filename}"
+
+    except OSError as exc:
+        print(f"Failed to write file {filename}: {exc}")
+        return (
+            f"ERROR: Failed to {'append' if append else 'write'} to file {filename}: {exc}"
+        )
+        
+def format_size(size_in_bytes: int) -> str:
+    if size_in_bytes < 0:
+        raise ValueError("File size cannot be negative.")
+    if size_in_bytes == 0:
+        return "0 B"
+
+    units = ("B", "KB", "MB", "GB", "TB", "PB", "EB")
+
+    i = min(
+        (size_in_bytes.bit_length() - 1) // 10,
+        len(units) - 1,
+    )
+
+    value = size_in_bytes / (1024 ** i)
+
+    return f"{value:.1f} {units[i]}" if i else f"{size_in_bytes} B"
+        
+# WIP
+def list_files() -> str:
+    data = []
+    
+    for file in ROOT.iterdir():
+        if not file.is_file():
+            continue
+            
+        try:
+            with file.open("r", encoding="utf-8", errors="ignore") as f:
+                preview = f.readline(512).strip()
+        except OSError:
+            continue
+
+        mime_type, _ = mimetypes.guess_type(file.name)
+        mime = mime_type or "unknown"
+        
+        try:
+            stats = file.stat()
+            ctime = datetime.fromtimestamp(stats.st_birthtime, timezone.utc)
+            mtime = datetime.fromtimestamp(stats.st_mtime, timezone.utc)
+            atime = datetime.fromtimestamp(stats.st_atime, timezone.utc)
+            size = format_size(stats.st_size)
+        except OSError:
+            continue
+        
+        # Using a clean format string with readable separation
+        data.append(
+            f"- filename: {file.name}, " 
+            f"mime: {mime}, "
+            f"size: {size}, "
+            f"created-at: {ctime.isoformat()}, " 
+            f"modified-at: {mtime.isoformat()}, " 
+            f"last-accessed-at: {atime.isoformat()}, "
+            f"preview: {preview}"
+        )
+        
+    return '\n'.join(data)
