@@ -22,7 +22,7 @@ class QuerySummarizer:
         llm: Llama,
         *,
         max_results: int = 10,
-        max_source_tokens: int = 750,
+        max_source_tokens: int = 4000,
         max_tokens: int = 350,
     ) -> None:
         self.llm = llm
@@ -137,14 +137,27 @@ class QuerySummarizer:
     ) -> str:
         """Generate one paragraph from the collected sources."""
 
+        # 1. Filter out completely empty scrapes first so they don't break our math
+        valid_sources = [(res, text) for res, text in sources if text and text.strip()]
+        
+        if not valid_sources:
+            return "No readable information was found from the web sources."
+
+        # Distributes max_source_tokens evenly across all active web pages
+        max_web_tokens = max(
+            1, 
+            self.max_source_tokens // len(valid_sources)
+        )
+
         source_sections = []
 
-        for result, text in sources:
+        for result, text in valid_sources:
             print(f'I am currently reading: {result.title}') # TEMP
             
+            # Apply the dynamically calculated budget ceiling
             text = self._truncate(
                 text,
-                self.max_source_tokens,
+                max_web_tokens,
             )
 
             source_sections.append(
@@ -163,18 +176,18 @@ QUERY:
 INFORMATION:
 {source_text}
 
-Write one concise paragraph that directly answers the query.
+Write one informational paragraph that directly answers the query.
 
 Rules:
+- Do not repeat the query or these instructions, or output text that describes these constraints.
+- State only direct, concrete answers to the query; do not add generic concluding summaries or sweeping generalizations.
 - Use only facts explicitly supported by the supplied information.
 - Do not use outside knowledge.
 - Do not treat a date as answering the query unless the supplied information explicitly associates that date with the event described in the query.
 - If the supplied information does not clearly establish the answer, say that it is unclear.
-- Match dates to the specific event asked about; do not substitute recording, publication, broadcast, or premiere dates for performance dates.
 - Preserve important qualifications and uncertainty.
 - If the information disagrees, briefly acknowledge the disagreement.
 - Do not mention the search process.
-- Do not repeat the query or these instructions.
 - Do not use headings, bullets, labels, or meta-commentary.
 - Do not use quotation marks.
 - Do not use the words source or sources.

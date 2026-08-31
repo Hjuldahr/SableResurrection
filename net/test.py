@@ -13,7 +13,7 @@ llm = Llama(
 
 summarizer = QuerySummarizer(llm) 
 
-query = ""
+query = "What is carcinization?"
 
 print(query)
 print(summarizer(query))
