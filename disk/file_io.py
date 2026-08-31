@@ -120,6 +120,10 @@ def write_file(
     if not is_generated_path(path):
         return "WARNING: Filepath is outside the permitted generated workspace."
 
+    # if append == False and file_content is Empty, this is valid since it clears the file
+    if append and not file_content.strip():
+        return "INFO: No content to append."
+
     try:
         path.parent.mkdir(exist_ok=True, parents=True)
 
@@ -237,42 +241,44 @@ class FileHandler:
         except OSError:
             return "ERROR: The file could not be read."
 
-    def read_files(self, *files: Path) -> str:
-        valid_files: list[Path] = []
+    def read_files(self, *files: str) -> str:
+        valid_paths: list[Path] = []
 
         for file in files:
-            if file in valid_files:
+            path = Path(file)
+            
+            if path in valid_paths:
                 continue
 
-            if self._validate_utf_file(file):
-                valid_files.append(file)
+            if self._validate_utf_file(path):
+                valid_paths.append(path)
 
-                if len(valid_files) >= self.text_file_batch_limit:
+                if len(valid_paths) >= self.text_file_batch_limit:
                     break
 
-        if not valid_files:
+        if not valid_paths:
             return "ERROR: No readable files were provided."
 
         max_file_tokens = max(
             1,
-            self.max_source_tokens // len(valid_files),
+            self.max_source_tokens // len(valid_paths),
         )
 
         source_sections: list[str] = []
 
-        for index, file in enumerate(valid_files):
+        for index, path in enumerate(valid_paths):
             text = self._process_file(
-                file,
+                path,
                 max_file_tokens,
             )
 
             if text.startswith("ERROR: "):
-                print(f"{file.name}: {text}")
+                print(f"{path.name}: {text}")
                 continue
 
             source_sections.append(
                 f"File Number {index}\n"
-                f"File Name: {file.name}\n"
+                f"File Name: {path.name}\n"
                 f"File Content\n"
                 f"{text}"
             )
