@@ -13,3 +13,8 @@ I might restrict email to read only if I add it (and since it can have attachmen
 
 
 TODO clock app
+
+INFO result isn't failure, a WARNING indicates a rejected request, and an ERROR indicates an attempted operation that couldn't be completed.
+
+Its not really possible to validate a file without opening it unless blindly trusting the name and stats. tokens shouldnt be allocated to unusable files. 
+File streaming is cheap relative to tokenizing since your not deriving data. If it really mattered, a task pool could concurrently validate the files
