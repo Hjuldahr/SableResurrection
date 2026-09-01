@@ -1,18 +1,30 @@
 from __future__ import annotations
 
+from collections.abc import Iterator
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
-from collections.abc import Iterator
+
 import requests
 import trafilatura
 from ddgs import DDGS
 from llama_cpp import Llama
+
+
+USER_AGENT = (
+    "Mozilla/5.0 "
+    "(Windows NT 10.0; Win64; x64) "
+    "AppleWebKit/537.36 "
+    "(KHTML, like Gecko) "
+    "Chrome/131.0 Safari/537.36"
+)
+
 
 @dataclass(slots=True)
 class SearchResult:
     title: str
     url: str
     snippet: str
+
 
 class QuerySummarizer:
     def __init__(
@@ -22,22 +34,35 @@ class QuerySummarizer:
         max_results: int = 10,
         max_source_tokens: int = 4000,
         max_output_tokens: int = 350,
+        max_workers: int = 10,
+        request_timeout: float = 10.0,
     ) -> None:
         if max_results < 1:
             raise ValueError("max_results must be at least 1")
+
         if max_source_tokens < 1:
             raise ValueError("max_source_tokens must be at least 1")
+
         if max_output_tokens < 1:
             raise ValueError("max_output_tokens must be at least 1")
-        
+
+        if max_workers < 1:
+            raise ValueError("max_workers must be at least 1")
+
+        if request_timeout <= 0:
+            raise ValueError("request_timeout must be greater than 0")
+
         self.llm = llm
+
         self.max_results = max_results
         self.max_source_tokens = max_source_tokens
         self.max_output_tokens = max_output_tokens
 
+        self.max_workers = max_workers
+        self.request_timeout = request_timeout
+
     def search(self, query: str) -> list[SearchResult]:
         """Search the web for relevant pages."""
-
         with DDGS() as ddgs:
             results = ddgs.text(
                 query,
@@ -55,20 +80,11 @@ class QuerySummarizer:
 
     def fetch(self, result: SearchResult) -> str | None:
         """Download and extract the main text from a webpage."""
-
         try:
             response = requests.get(
                 result.url,
-                timeout=10,
-                headers={
-                    "User-Agent": (
-                        "Mozilla/5.0 "
-                        "(Windows NT 10.0; Win64; x64) "
-                        "AppleWebKit/537.36 "
-                        "(KHTML, like Gecko) "
-                        "Chrome/131.0 Safari/537.36"
-                    )
-                },
+                timeout=self.request_timeout,
+                headers={"User-Agent": USER_AGENT},
             )
             response.raise_for_status()
 
@@ -85,106 +101,138 @@ class QuerySummarizer:
         self,
         results: list[SearchResult],
     ) -> list[tuple[SearchResult, str]]:
-        """Fetch pages concurrently."""
+        """Fetch pages concurrently while preserving search-result order."""
+        if not results:
+            return []
+
+        max_workers = min(
+            self.max_workers,
+            len(results),
+        )
 
         with ThreadPoolExecutor(
-            max_workers=min(len(results), 10)
+            max_workers=max_workers,
         ) as executor:
             pages = executor.map(self.fetch, results)
 
         return [
             (result, text)
             for result, text in zip(results, pages)
-            if text
+            if text and text.strip()
         ]
 
     @staticmethod
-    def _get_line(text: str) -> Iterator[str]:
-        i = 0
-        n = len(text)
+    def _get_lines(text: str) -> Iterator[str]:
+        """Yield text one line at a time without constructing a line list."""
+        start = 0
 
-        while i < n:
-            j = text.find("\n", i)
+        while start < len(text):
+            end = text.find("\n", start)
 
-            if j == -1:
-                j = n
-            else:
-                j += 1
+            if end == -1:
+                yield text[start:]
+                return
 
-            yield text[i:j]
-            i = j
+            end += 1
+
+            yield text[start:end]
+            start = end
 
     def _truncate(
         self,
         text: str,
-        max_site_tokens: int,
+        max_tokens: int,
     ) -> str:
-        """Truncate text to max_site_tokens while preserving whole lines where possible."""
+        """Truncate text to at most max_tokens, preferring whole lines."""
+        if max_tokens <= 0:
+            return ""
+
         token_count = 0
         char_count = 0
-        
-        text = text[:max_site_tokens * 12]
 
-        for line in self._get_line(text):
-            line_tokens = self.llm.tokenize(line.encode("utf-8"))
+        # Avoid scanning arbitrarily large pages when token density is very
+        # low. This is only a pre-filter; the token budget remains authoritative.
+        text = text[: max_tokens * 12]
+
+        for line in self._get_lines(text):
+            remaining = max_tokens - token_count
+
+            if remaining <= 0:
+                break
+
+            line_tokens = self.llm.tokenize(
+                line.encode("utf-8"),
+                add_bos=False,
+            )
+
             line_token_count = len(line_tokens)
-
-            remaining = max_site_tokens - token_count
 
             if line_token_count <= remaining:
                 token_count += line_token_count
                 char_count += len(line)
                 continue
 
-            if remaining > 0:
-                tokens = line_tokens[:remaining]
-                truncated_line = self.llm.detokenize(tokens).decode(
-                    "utf-8",
-                    errors="ignore",
-                )
-                return text[:char_count] + truncated_line
+            truncated = self.llm.detokenize(
+                line_tokens[:remaining],
+            ).decode(
+                "utf-8",
+                errors="replace",
+            )
 
-            break
+            return text[:char_count] + truncated
 
         return text[:char_count]
 
-    def summarize(
+    def _prepare_sources(
         self,
-        query: str,
         sources: list[tuple[SearchResult, str]],
-    ) -> str:
-        """Generate one paragraph from the collected sources."""
+    ) -> list[tuple[SearchResult, str]]:
+        """Remove empty sources and apply the collective source-token budget."""
+        valid_sources = [
+            (result, text)
+            for result, text in sources
+            if text and text.strip()
+        ]
 
-        # 1. Filter out completely empty scrapes first so they don't break our math
-        valid_sources = [(res, text) for res, text in sources if text and text.strip()]
-        
         if not valid_sources:
-            return "No readable information was found from the web sources."
+            return []
 
-        # Distributes max_source_tokens evenly across all active web pages
-        max_web_tokens = max(
-            1, 
-            self.max_source_tokens // len(valid_sources)
+        max_site_tokens = max(
+            1,
+            self.max_source_tokens // len(valid_sources),
         )
 
-        source_sections = []
+        prepared: list[tuple[SearchResult, str]] = []
 
         for result, text in valid_sources:
-            print(f'I am currently reading: {result.title}') # TEMP
-            
-            # Apply the dynamically calculated budget ceiling
+            print(f"I am currently reading: {result.title}")  # TEMP
+
             text = self._truncate(
                 text,
-                max_web_tokens,
+                max_site_tokens,
             )
 
-            source_sections.append(
-                f"TITLE: {result.title}\n"
-                f"{text}"
-            )
+            if text:
+                prepared.append((result, text))
 
-        source_text = "\n\n".join(source_sections)
+        return prepared
 
+    @staticmethod
+    def _build_source_text(
+        sources: list[tuple[SearchResult, str]],
+    ) -> str:
+        """Construct the model-facing information block."""
+        return "\n\n".join(
+            f"TITLE: {result.title}\n{text}"
+            for result, text in sources
+        )
+
+    def _summarize(
+        self,
+        query: str,
+        source_text: str,
+    ) -> str:
+        """Generate an answer from the supplied information."""
         prompt = f"""
 Answer the query using only the information provided below.
 
@@ -222,9 +270,37 @@ Rules:
 
         return response["choices"][0]["text"].strip()
 
-    def __call__(self, query: str) -> str:
-        """Search the web and summarize the results."""
+    def summarize(
+        self,
+        query: str,
+        sources: list[tuple[SearchResult, str]],
+    ) -> str:
+        """Generate one paragraph from the collected sources."""
+        prepared_sources = self._prepare_sources(sources)
 
+        if not prepared_sources:
+            return "No readable information was found from the web sources."
+
+        source_text = self._build_source_text(prepared_sources)
+
+        return self._summarize(
+            query,
+            source_text,
+        )
+
+    @staticmethod
+    def _use_snippets(
+        results: list[SearchResult],
+    ) -> list[tuple[SearchResult, str]]:
+        """Use search-result snippets as fallback information."""
+        return [
+            (result, result.snippet)
+            for result in results
+            if result.snippet and result.snippet.strip()
+        ]
+
+    def __call__(self, query: str) -> str:
+        """Search the web and summarize the collected information."""
         results = self.search(query)
 
         if not results:
@@ -232,15 +308,13 @@ Rules:
 
         sources = self._fetch_results(results)
 
-        # If page extraction failed, use search snippets instead.
         if not sources:
-            sources = [
-                (result, result.snippet)
-                for result in results
-                if result.snippet
-            ]
+            sources = self._use_snippets(results)
 
         if not sources:
             return "No readable information was found."
 
-        return self.summarize(query, sources)
+        return self.summarize(
+            query,
+            sources,
+        )
