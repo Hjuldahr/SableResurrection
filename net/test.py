@@ -13,7 +13,7 @@ llm = Llama(
 
 summarizer = QuerySummarizer(llm) 
 
-query = "How many species of butterfly is there?"
+query = "How many species of butterfly are there in England?"
 
 print(query)
 print(summarizer(query))

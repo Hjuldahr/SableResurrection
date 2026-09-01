@@ -91,11 +91,13 @@ class QuerySummarizer:
         except requests.RequestException:
             return None
 
-        return trafilatura.extract(
+        text = trafilatura.extract(
             response.text,
             include_comments=False,
             include_tables=False,
         )
+            
+        return text
 
     def _fetch_results(
         self,
@@ -144,11 +146,13 @@ class QuerySummarizer:
         max_tokens: int,
     ) -> str:
         """Truncate text to at most max_tokens, preferring whole lines."""
-        if max_tokens <= 0:
+        if max_tokens <= 0 or not text:
             return ""
 
         token_count = 0
         char_count = 0
+
+        text = self._deduplicate_paragraphs(text)
 
         # Avoid scanning arbitrarily large pages when token density is very
         # low. This is only a pre-filter; the token budget remains authoritative.
@@ -204,8 +208,10 @@ class QuerySummarizer:
 
         prepared: list[tuple[SearchResult, str]] = []
 
+        # TEMP echo
+        print("I am currently reading:")
         for result, text in valid_sources:
-            print(f"I am currently reading: {result.title}")  # TEMP
+            print(f'- {result.title}\n  chars:{len(text)}')
 
             text = self._truncate(
                 text,
@@ -216,6 +222,28 @@ class QuerySummarizer:
                 prepared.append((result, text))
 
         return prepared
+
+    @staticmethod
+    def _deduplicate_paragraphs(text: str) -> str:
+        """Remove exact duplicate paragraphs while preserving order."""
+        seen: set[str] = set()
+        paragraphs: list[str] = []
+
+        for paragraph in text.split("\n\n"):
+            normalized = " ".join(paragraph.split())
+
+            if not normalized:
+                print('empty')
+                continue
+
+            if normalized in seen:
+                print('duplicate')
+                continue
+
+            seen.add(normalized)
+            paragraphs.append(paragraph)
+
+        return "\n\n".join(paragraphs)
 
     @staticmethod
     def _build_source_text(
@@ -233,8 +261,8 @@ class QuerySummarizer:
         source_text: str,
     ) -> str:
         """Generate an answer from the supplied information."""
-        prompt = f"""
-Answer the query using only the information provided below.
+        prompt = f"""TASK:
+Write one informational paragraph that directly answers the query.
 
 QUERY:
 {query}
@@ -242,18 +270,15 @@ QUERY:
 INFORMATION:
 {source_text}
 
-REQUIREMENTS:
-Write one concise factual paragraph that directly answers the query.
-Answer the specific question first, then include only necessary supporting context. 
-Use only facts explicitly supported by the supplied information. 
+RULES:
+Do not repeat or describe the query, these rules, or the search process.
 Do not use outside knowledge or combine separate facts into an unsupported conclusion.
-Preserve important qualifications and uncertainty, and briefly acknowledge conflicting information when present. 
-Do not treat a date as answering the query unless it is explicitly associated with the queried event. 
-If the answer is not clearly established, state that it is unclear. 
-Do not repeat the query or these instructions, mention the search process, or add unrelated facts, generic conclusions, headings, bullets, labels, meta-commentary, or quotation marks. 
-Do not use the words source or sources. 
-End with a complete sentence and output only the paragraph.
-"""
+Do not substitute a broader or different geographic, temporal, or categorical scope for the one asked about.
+Do not treat a date as answering the query unless it is explicitly associated with the queried event.
+Do not add unrelated facts, generic conclusions, headings, bullets, labels, meta-commentary, or quotation marks.
+Answer the specific question first, then include only necessary supporting context.
+If the answer is not clearly established or is contradictory, state that it is uncertain.
+End with a complete sentence and output only the paragraph."""
 
         response = self.llm(
             prompt,
