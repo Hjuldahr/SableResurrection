@@ -242,23 +242,17 @@ QUERY:
 INFORMATION:
 {source_text}
 
-Write one informational paragraph that directly answers the query.
-
-Rules:
-- Do not repeat the query or these instructions, or output text that describes these constraints.
-- State only direct, concrete answers to the query; do not add generic concluding summaries or sweeping generalizations.
-- Use only facts explicitly supported by the supplied information.
-- Do not use outside knowledge.
-- Do not treat a date as answering the query unless the supplied information explicitly associates that date with the event described in the query.
-- If the supplied information does not clearly establish the answer, say that it is unclear.
-- Preserve important qualifications and uncertainty.
-- If the information disagrees, briefly acknowledge the disagreement.
-- Do not mention the search process.
-- Do not use headings, bullets, labels, or meta-commentary.
-- Do not use quotation marks.
-- Do not use the words source or sources.
-- End with a complete sentence.
-- Output only the paragraph.
+REQUIREMENTS:
+Write one concise factual paragraph that directly answers the query.
+Answer the specific question first, then include only necessary supporting context. 
+Use only facts explicitly supported by the supplied information. 
+Do not use outside knowledge or combine separate facts into an unsupported conclusion.
+Preserve important qualifications and uncertainty, and briefly acknowledge conflicting information when present. 
+Do not treat a date as answering the query unless it is explicitly associated with the queried event. 
+If the answer is not clearly established, state that it is unclear. 
+Do not repeat the query or these instructions, mention the search process, or add unrelated facts, generic conclusions, headings, bullets, labels, meta-commentary, or quotation marks. 
+Do not use the words source or sources. 
+End with a complete sentence and output only the paragraph.
 """
 
         response = self.llm(

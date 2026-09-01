@@ -13,7 +13,7 @@ llm = Llama(
 
 summarizer = QuerySummarizer(llm) 
 
-query = "Why did Hitler hate jews?"
+query = "How many species of butterfly is there?"
 
 print(query)
 print(summarizer(query))
