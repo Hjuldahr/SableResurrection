@@ -251,8 +251,8 @@ Return only the memories, without commentary about the summarization process.
 
 CONVERSATIONAL_ATTRIBUTES = {
     "max_tokens": MAX_TOKENS,
-    "temperature": TEMPERATURE,
-    "repeat_penalty": 1.1,
+    "temperature": 0.6,
+    "repeat_penalty": 1.055,
 }
 
 REFLECTION_ATTRIBUTES = {

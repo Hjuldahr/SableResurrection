@@ -69,7 +69,6 @@ class ToolManager:
     
     def browse_files(self, pattern: str = '*') -> str:
         return browse_file_candidates(pattern)
-    
 
 CLOCK_META = {
     "type": "function",

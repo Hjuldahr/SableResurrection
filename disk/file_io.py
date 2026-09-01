@@ -7,8 +7,9 @@ from pathlib import Path
 from llama_cpp import Llama
 
 
-WORKSPACE_ROOT = (Path(__file__).parents[1] / "file-workspace").resolve()
-GENERATED_ROOT = (WORKSPACE_ROOT / "generated").resolve()
+ROOT = Path(__file__).parents[1].resolve()
+WORKSPACE_ROOT = ROOT / "file-workspace"
+GENERATED_ROOT = WORKSPACE_ROOT / "generated"
 
 
 def is_sanctioned_file(path: Path) -> bool:
@@ -50,23 +51,29 @@ def format_size(size_in_bytes: int) -> str:
 
     return f"{value:.1f} {units[exponent]}"
 
-def utc_timestamp(ts: float) -> str:
+
+def utc_timestamp(timestamp: float) -> str:
+    """Convert a filesystem timestamp to an ISO-8601 UTC timestamp."""
     return datetime.fromtimestamp(
-        ts,
+        timestamp,
         timezone.utc,
     ).isoformat()
 
+
 def file_stats(file: Path) -> tuple[str, str, str, str]:
+    """Return creation, modification, access times and human-readable size."""
     stats = file.stat()
+
     return (
-        utc_timestamp(stats.st_birthtime), 
-        utc_timestamp(stats.st_mtime), 
+        utc_timestamp(stats.st_birthtime),
+        utc_timestamp(stats.st_mtime),
         utc_timestamp(stats.st_atime),
-        format_size(stats.st_size)
+        format_size(stats.st_size),
     )
 
+
 def browse_file_candidates(pattern: str = "*") -> str:
-    """Return metadata and previews for files matching a workspace pattern."""
+    """Return metadata and previews for readable files matching a workspace glob."""
     if not WORKSPACE_ROOT.exists():
         return "WARNING: File workspace has not been initialized."
 
@@ -87,7 +94,6 @@ def browse_file_candidates(pattern: str = "*") -> str:
 
         mime_type, _ = mimetypes.guess_type(file.name)
         mime = mime_type or "unknown"
-
         location = file.relative_to(WORKSPACE_ROOT)
 
         data.append(
@@ -101,9 +107,7 @@ def browse_file_candidates(pattern: str = "*") -> str:
         )
 
     if not data:
-        return (
-            f"INFO: No files were found for the glob pattern: {pattern}."
-        )
+        return f"INFO: No files were found for the glob pattern: {pattern}."
 
     return "\n".join(data)
 
@@ -120,12 +124,16 @@ def write_file(
     if not is_generated_path(path):
         return "WARNING: Filepath is outside the permitted generated workspace."
 
-    # if append == False and file_content is Empty, this is valid since it clears the file
+    # An empty append is a no-op, while an empty overwrite intentionally
+    # clears the file.
     if append and not file_content.strip():
         return "INFO: No content to append."
 
     try:
-        path.parent.mkdir(exist_ok=True, parents=True)
+        path.parent.mkdir(
+            parents=True,
+            exist_ok=True,
+        )
 
         mode = "a" if append else "w"
 
@@ -173,7 +181,18 @@ class FileHandler:
         self.max_source_tokens = max_source_tokens
         self.max_output_tokens = max_output_tokens
 
-    def _validate_utf_file(self, file: Path) -> bool:
+    @staticmethod
+    def _resolve_workspace_path(file: str | Path) -> Path:
+        """Resolve a file argument relative to the workspace when necessary."""
+        path = Path(file)
+
+        if not path.is_absolute():
+            path = WORKSPACE_ROOT / path
+
+        return path
+
+    @staticmethod
+    def _validate_utf_file(file: Path) -> bool:
         """Perform a lightweight check for readable, non-empty UTF-8 text."""
         try:
             if not is_sanctioned_file(file):
@@ -194,20 +213,20 @@ class FileHandler:
         max_file_tokens: int,
     ) -> str:
         try:
-            with file.open(encoding="utf-8") as stream:
+            with file.open("r", encoding="utf-8") as stream:
                 lines: list[str] = []
                 token_count = 0
 
                 for line in stream:
-                    line_tokens = self.tokenizer.tokenize(
-                        line.encode("utf-8"),
-                        add_bos=False,
-                    )
-
                     remaining = max_file_tokens - token_count
 
                     if remaining <= 0:
                         break
+
+                    line_tokens = self.tokenizer.tokenize(
+                        line.encode("utf-8"),
+                        add_bos=False,
+                    )
 
                     if len(line_tokens) <= remaining:
                         lines.append(line)
@@ -218,7 +237,7 @@ class FileHandler:
                         line_tokens[:remaining],
                     ).decode(
                         "utf-8",
-                        errors="ignore",
+                        errors="replace",
                     )
 
                     lines.append(truncated)
@@ -241,32 +260,44 @@ class FileHandler:
         except OSError:
             return "ERROR: The file could not be read."
 
-    def read_files(self, *files: str) -> str:
+    def _collect_valid_files(self, files: tuple[str, ...]) -> list[Path]:
+        """Resolve and validate file arguments up to the configured batch limit."""
         valid_paths: list[Path] = []
+        seen: set[Path] = set()
 
         for file in files:
-            path = Path(file)
-            
-            if path in valid_paths:
+            path = self._resolve_workspace_path(file)
+
+            # Resolve only for duplicate detection. Validation itself still
+            # receives the original path so that symlink policy is preserved.
+            try:
+                identity = path.resolve()
+            except OSError:
                 continue
 
-            if self._validate_utf_file(path):
-                valid_paths.append(path)
+            if identity in seen:
+                continue
 
-                if len(valid_paths) >= self.text_file_batch_limit:
-                    break
+            if not self._validate_utf_file(path):
+                continue
 
-        if not valid_paths:
-            return "ERROR: No readable files were provided."
+            seen.add(identity)
+            valid_paths.append(path)
 
-        max_file_tokens = max(
-            1,
-            self.max_source_tokens // len(valid_paths),
-        )
+            if len(valid_paths) >= self.text_file_batch_limit:
+                break
 
-        source_sections: list[str] = []
+        return valid_paths
 
-        for index, path in enumerate(valid_paths):
+    def _build_source_sections(
+        self,
+        files: list[Path],
+        max_file_tokens: int,
+    ) -> list[str]:
+        """Read files and construct model-facing source sections."""
+        sections: list[str] = []
+
+        for path in files:
             text = self._process_file(
                 path,
                 max_file_tokens,
@@ -276,18 +307,16 @@ class FileHandler:
                 print(f"{path.name}: {text}")
                 continue
 
-            source_sections.append(
-                f"File Number {index}\n"
-                f"File Name: {path.name}\n"
+            sections.append(
+                f"File Name: {path.relative_to(WORKSPACE_ROOT)}\n"
                 f"File Content\n"
                 f"{text}"
             )
 
-        if not source_sections:
-            return "ERROR: None of the supplied files could be read."
+        return sections
 
-        source_text = "\n\n".join(source_sections)
-
+    def _summarize(self, source_text: str) -> str:
+        """Summarize a collection of source text using the configured LLM."""
         prompt = f"""
 Summarize the text below.
 
@@ -315,3 +344,27 @@ Rules:
         )
 
         return response["choices"][0]["text"].strip()
+
+    def read_files(self, *files: str) -> str:
+        """Read and collectively summarize a batch of workspace text files."""
+        valid_paths = self._collect_valid_files(files)
+
+        if not valid_paths:
+            return "ERROR: No readable files were provided."
+
+        max_file_tokens = max(
+            1,
+            self.max_source_tokens // len(valid_paths),
+        )
+
+        source_sections = self._build_source_sections(
+            valid_paths,
+            max_file_tokens,
+        )
+
+        if not source_sections:
+            return "ERROR: None of the supplied files could be read."
+
+        source_text = "\n\n".join(source_sections)
+
+        return self._summarize(source_text)
