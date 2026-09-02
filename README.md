@@ -2,7 +2,9 @@
 
 The project uses llama-cpp-python 0.3.35 with CUDA GPU offloading.
 
-Required legacy CUDA toolchain for local dev environment:
+Required minimal legacy CUDA toolchain for local dev environment:
+- AMD Ryzen 5 1400 Quad-Core Processor
+- 32 GB Memory
 - GPU: NVIDIA GeForce GTX 960 (Compute Capability 5.2)
 - CUDA Toolkit: 11.8.0
 - nvcc: 11.8.89

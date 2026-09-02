@@ -6,8 +6,8 @@ from ai_tools.file_io import FileHandler, browse_file_candidates, delete_files, 
 from ai_tools.web_search_v2 import PageSummarizer, search_books, search_image, search_news, search_text
 
 class ToolManager:
-    def __init__(self, path: str):
-        self.path = path
+    def __init__(self, path: str | None = None):
+        self.path = path or 'C:\\Users\\robert\\Documents\\VS Code Files\\SABLE-Revamp\\llm\\gemma-4-E2B-it-Q4_K_M.gguf'
         
         self._llm: Llama | None = None
         self._page_summarizer: PageSummarizer | None = None
@@ -33,11 +33,12 @@ class ToolManager:
         if not self._llm:
             self._llm = Llama(
                 self.path, 
-                n_ctx=16000, 
+                n_ctx=16_384, 
                 n_threads=4,
-                n_gpu_layers=18,
+                n_gpu_layers=-1, 
                 n_batch=512,
                 n_ubatch=256,
+                flash_attn=True,
                 verbose=False
             )
             

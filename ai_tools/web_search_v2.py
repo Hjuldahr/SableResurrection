@@ -81,7 +81,7 @@ class PageSummarizer:
         self,
         llm: Llama,
         *,
-        max_source_tokens: int = 4000,
+        max_source_tokens: int = 16_000,
         max_output_tokens: int = 350,
         request_timeout: float = 10.0,
     ) -> None:
@@ -119,13 +119,11 @@ class PageSummarizer:
             start = end
 
     @classmethod
-    def _fetch(cls, url: str) -> tuple[str | None, list[ImageData]]:
+    def _fetch(cls, url: str) -> str | None:
         """Download and extract the main text from a webpage."""
         downloaded = trafilatura.fetch_url(url)
         if not downloaded:
-            return None, []
-
-        images: list[ImageData] = []
+            return None
         
         text = trafilatura.extract(
             downloaded,
@@ -148,7 +146,7 @@ class PageSummarizer:
             
             text = cls.LINK_REGEX.sub(make_absolute, text)
         
-        return text, images
+        return text
 
     def _truncate(
         self,
@@ -194,7 +192,7 @@ class PageSummarizer:
 
         return text[:char_count]
 
-    def _summarize(self, query: str, source_text: str, images: list[ImageData]) -> str:
+    def _summarize(self, query: str, source_text: str) -> str:
         text_prompt = f"""QUERY: 
 {query}
 
@@ -214,44 +212,37 @@ End with a complete sentence and output only the paragraph."""
         response = self.llm.create_chat_completion(
             messages=[
                 {"role": "system", "content": "Write one informational paragraph that directly answers the query using the information provided."},
-                {
-                    "role": "user",
-                    "content": [
-                        {
-                            "type": "text", 
-                            "text": text_prompt
-                        }
-                    ]
-                }
+                {"role": "user", "content": text_prompt}
             ],
             max_tokens=self.max_output_tokens,
-            temperature=0.3
+            temperature=0.3,
         )
 
-        return response["choices"][0]["text"].strip()
+        return response["choices"][0]["message"]["content"].strip()
 
-    def __call__(self, query: str, url: str) -> str:
+    def summarize_page(self, query: str, url: str) -> str:
         """Fetch and summarize a specified webpage in response to a query."""
-        text, images = self._fetch(url)
+        text = self._fetch(url)
 
         if not text:
             return "No readable information was found."
 
         text = self._truncate(text)
 
-        return self._summarize(query, text, images)
+        return self._summarize(query, text)
 
 if __name__ == '__main__': # only run test when called directly
     llm = Llama(
-        "C:\\Users\\robert\\Documents\\VS Code Files\\SABLE-Revamp\\llm\\microsoft_Phi-4-mini-instruct-Q4_K_M.gguf",
-        n_ctx=16_000, 
+        "C:\\Users\\robert\\Documents\\VS Code Files\\SABLE-Revamp\\llm\\gemma-4-E2B-it-Q4_K_M.gguf",
+        n_ctx=16_384, 
         n_threads=4,
-        n_gpu_layers=18, 
+        n_gpu_layers=-1, 
         n_batch=512,
         n_ubatch=256,
+        flash_attn=True,
         verbose=False
     ) 
 
-    print(PageSummarizer(llm)('Why was the troupe of Monty Python created?', 'https://en.wikipedia.org/wiki/Monty_Python'))
+    print(PageSummarizer(llm).summarize_page('Why was the troupe of Monty Python created?', 'https://en.wikipedia.org/wiki/Monty_Python'))
 
     llm.close()

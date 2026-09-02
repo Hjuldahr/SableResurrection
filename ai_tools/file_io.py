@@ -372,15 +372,7 @@ End with a complete sentence and output only the paragraph."""
         response = self.llm.create_chat_completion(
             messages=[
                 {"role": "system", "content": "Write one informational paragraph that describes the plaintext files provided."},
-                {
-                    "role": "user",
-                    "content": [
-                        {
-                            "type": "text", 
-                            "text": text_prompt
-                        }
-                    ]
-                }
+                {"role": "user", "content": text_prompt}
             ],
             max_tokens=self.max_output_tokens,
             temperature=0.3
