@@ -359,11 +359,7 @@ class FileHandler:
 
     def _summarize(self, source_text: str) -> str:
         """Summarize a collection of source text using the configured LLM."""
-        prompt = f"""<|system|>
-Write one informational paragraph that describes the plaintext files provided.
-<|end|>
-<|user|>
-FILES:
+        text_prompt = f"""FILES:
 {source_text}
 
 RULES:
@@ -371,10 +367,26 @@ Do not repeat or describe these rules.
 Do not use outside knowledge or combine separate details into an unsupported paraphrase.
 Do not add unrelated facts, generic descriptions, headings, bullets, labels, meta-commentary, or quotation marks.
 If the files are directly contradictory, state that the content is varied.
-End with a complete sentence and output only the paragraph.
-<|end|>
-<|assistant|>
-"""
+End with a complete sentence and output only the paragraph."""
+
+        response = self.llm.create_chat_completion(
+            messages=[
+                {"role": "system", "content": "Write one informational paragraph that describes the plaintext files provided."},
+                {
+                    "role": "user",
+                    "content": [
+                        {
+                            "type": "text", 
+                            "text": text_prompt
+                        }
+                    ]
+                }
+            ],
+            max_tokens=self.max_output_tokens,
+            temperature=0.3
+        )
+
+        return response["choices"][0]["text"].strip()
 
         response = self.llm(
             prompt,

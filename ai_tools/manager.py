@@ -71,15 +71,9 @@ class ToolManager:
                 return search_news(query)
             case _:
                 return search_text(query)
-
-    def search_image(self, query: str, size: str | None = None, colour: str | None = None, image_type: str | None = None, layout: str | None = None) -> str:
-        return search_image(query, size, colour, image_type, layout)
     
     def summarize_page(self, query: str, url: str) -> str:
         return self.page_summarizer.summarize_page(query, url)
-
-    def summarize_gallery(self, query: str, image_urls: list[str]) -> str:
-        return self.page_summarizer.summarize_gallery(query, *image_urls)
     
     def summarize_files(self, filenames: list[str]) -> str:
         return self.file_handler.summarize_files(*filenames)
@@ -169,46 +163,6 @@ SEARCH_TEXT_META = {
     },
 }
 
-SEARCH_IMAGE_META = {
-    "type": "function",
-    "function": {
-        "name": "search_image",
-        "description":(
-            "Get a listing of up to 10 images from the internet using a query."
-        ),
-        "parameters": {
-            "type": "object",
-            "properties": {
-                "query": {
-                    "type": "string",
-                    "description": "The query being used to search the internet",
-                },
-                "size": {
-                    "type": "string",
-                    "enum": ["Small", "Medium", "Large", "Wallpaper"],
-                    "description": "The image size category. Optional."
-                },
-                "colour": {
-                    "type": "string",
-                    "enum": ["color", "Monochrome", "Red", "Orange", "Yellow", "Green", "Blue", "Purple", "Pink", "Brown", "Black", "Gray", "Teal", "White"],
-                    "description": "The image colour category. Optional."
-                },
-                "image_type": {
-                    "type": "string",
-                    "enum": ["photo", "clipart", "gif", "transparent", "line"],
-                    "description": "The image style type. Optional."
-                },
-                "layout": {
-                    "type": "string",
-                    "enum": ["Square", "Tall", "Wide"],
-                    "description": "The image dimensions contraints. Optional."
-                }
-            },
-            "required": ["query"],
-        },
-    },
-}
-
 SEARCH_BOOKS_META = {
     "type": "function",
     "function": {
@@ -234,7 +188,7 @@ SUMMARIZE_PAGE_META = {
     "function": {
         "name": "summarize_page",
         "description":(
-            "Get a query oriented summary of the pages textual and image contents assuming its correctly formatted. "
+            "Get a query oriented summary of the pages textual contents assuming its correctly formatted. "
             "This is not a comprehensive breakdown of the page's markdown contents and its link structure, "
             "but an AI generated informative paragraph addressing the query directly."
         ),
@@ -251,37 +205,6 @@ SUMMARIZE_PAGE_META = {
                 },
             },
             "required": ["query", "url"],
-        },
-    },
-}
-
-SUMMARIZE_GALLERY_META = {
-    "type": "function",
-    "function": {
-        "name": "summarize_gallery",
-        "description":(
-            "Get a query oriented summary of image content. "
-            "This is not a comprehensive breakdown of the images appearance, composition, subject, or metadata, "
-            "but an AI generated informative paragraph addressing the query directly."
-        ),
-        "parameters": {
-            "type": "object",
-            "properties": {
-                "query": {
-                    "type": "string",
-                    "description": "The query being used to refine the summary",
-                },
-                "image_urls": {
-                    "type": "array",
-                    "items": {
-                        "type": "string"
-                    },
-                    "description": "A sequence of image urls (1 to 10 image urls).",
-                    "minItems": 1,
-                    "maxItems": 10
-                },
-            },
-            "required": ["query", "image_urls"],
         },
     },
 }
