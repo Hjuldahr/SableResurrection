@@ -152,8 +152,6 @@ class QuerySummarizer:
         token_count = 0
         char_count = 0
 
-        text = self._deduplicate_paragraphs(text)
-
         # Avoid scanning arbitrarily large pages when token density is very
         # low. This is only a pre-filter; the token budget remains authoritative.
         text = text[: max_tokens * 12]
@@ -224,28 +222,6 @@ class QuerySummarizer:
         return prepared
 
     @staticmethod
-    def _deduplicate_paragraphs(text: str) -> str:
-        """Remove exact duplicate paragraphs while preserving order."""
-        seen: set[str] = set()
-        paragraphs: list[str] = []
-
-        for paragraph in text.split("\n\n"):
-            normalized = " ".join(paragraph.split())
-
-            if not normalized:
-                print('empty')
-                continue
-
-            if normalized in seen:
-                print('duplicate')
-                continue
-
-            seen.add(normalized)
-            paragraphs.append(paragraph)
-
-        return "\n\n".join(paragraphs)
-
-    @staticmethod
     def _build_source_text(
         sources: list[tuple[SearchResult, str]],
     ) -> str:
@@ -261,10 +237,11 @@ class QuerySummarizer:
         source_text: str,
     ) -> str:
         """Generate an answer from the supplied information."""
-        prompt = f"""TASK:
+        prompt = f"""<|system|>
 Write one informational paragraph that directly answers the query.
-
-QUERY:
+<|end|>
+<|user|>
+QUERY: 
 {query}
 
 INFORMATION:
@@ -278,13 +255,15 @@ Do not treat a date as answering the query unless it is explicitly associated wi
 Do not add unrelated facts, generic conclusions, headings, bullets, labels, meta-commentary, or quotation marks.
 Answer the specific question first, then include only necessary supporting context.
 If the answer is not clearly established or is contradictory, state that it is uncertain.
-End with a complete sentence and output only the paragraph."""
+End with a complete sentence and output only the paragraph.
+<|end|>
+<|assistant|>
+"""
 
         response = self.llm(
             prompt,
             max_tokens=self.max_output_tokens,
             temperature=0.3,
-            stop=["</s>"],
         )
 
         return response["choices"][0]["text"].strip()

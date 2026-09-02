@@ -1,71 +1,97 @@
-from pathlib import Path
-
 from llama_cpp import Llama
 
 from ai_tools.calculate import calculate
 from ai_tools.clock import clock
-from disk.file_io import FileHandler, browse_file_candidates, write_file
-from net.search import QuerySummarizer
+from ai_tools.file_io import FileHandler, browse_file_candidates, delete_files, write_file
+from ai_tools.web_search_v2 import PageSummarizer, search_books, search_image, search_news, search_text
 
 class ToolManager:
     def __init__(self, path: str):
         self.path = path
         
-        self.llm: Llama | None = None
-        self.query_summarizer: QuerySummarizer | None = None
-        self.file_handler: FileHandler | None = None
+        self._llm: Llama | None = None
+        self._page_summarizer: PageSummarizer | None = None
+        self._file_handler: FileHandler | None = None
     
     def __enter__(self):
         return self
     
     def __exit__(self, exc_type, exc, tb):
-        self._clean_model()
+        if not self._llm:
+            return False
+            
+        self._page_summarizer = None
+        self._file_handler = None
+        
+        self._llm.close()
+        self._llm = None
+        
         return False
     
-    def _build_model(self):
-        if self.llm:
-            return
-        
-        self.llm = Llama(
-            self.path, 
-            n_ctx=16000, 
-            n_threads=4,
-            n_gpu_layers=18,
-            n_batch=512,
-            n_ubatch=256,
-            verbose=False
-        )
-        
-        self.query_summarizer = QuerySummarizer(self.llm)
-        self.file_handler = FileHandler(self.llm)
+    @property
+    def llm(self) -> Llama:
+        if not self._llm:
+            self._llm = Llama(
+                self.path, 
+                n_ctx=16000, 
+                n_threads=4,
+                n_gpu_layers=18,
+                n_batch=512,
+                n_ubatch=256,
+                verbose=False
+            )
+            
+        return self._llm
     
-    def _clean_model(self):
-        if not self.llm:
-            return
+    @property
+    def page_summarizer(self) -> PageSummarizer:
+        if not self._page_summarizer:
+            self._page_summarizer = PageSummarizer(self.llm)
             
-        self.query_summarizer = None
-        self.file_handler = None
-        self.llm.close()
-        self.llm = None
+        return self._page_summarizer
+    
+    @property
+    def file_handler(self) -> FileHandler:
+        if not self._file_handler:
+            self._file_handler = FileHandler(self.llm)
             
+        return self._file_handler
+    
     def clock(self, zone: str | None = None) -> str:
         return clock(zone)
     
     def calculate(self, expression: str) -> str:
         return calculate(expression)
     
-    def web_search(self, query: str) -> str:
-        self._build_model()
-        return self.query_summarizer(query)
+    def search_text(self, query: str, mode: str = "text") -> str:
+        match mode:
+            case "books":
+                return search_books(query)
+            case "news":
+                return search_news(query)
+            case _:
+                return search_text(query)
+
+    def search_image(self, query: str, size: str | None = None, colour: str | None = None, image_type: str | None = None, layout: str | None = None) -> str:
+        return search_image(query, size, colour, image_type, layout)
     
-    def read_file(self, filenames: list[str]) -> str:
-        self._build_model()
-        return self.file_handler.read_files(
-            *[Path(filename) for filename in filenames]
-        )
+    def summarize_page(self, query: str, url: str) -> str:
+        return self.page_summarizer.summarize_page(query, url)
+
+    def summarize_gallery(self, query: str, image_urls: list[str]) -> str:
+        return self.page_summarizer.summarize_gallery(query, *image_urls)
+    
+    def summarize_files(self, filenames: list[str]) -> str:
+        return self.file_handler.summarize_files(*filenames)
+        
+    def read_file(self, filename: str, offset: int = 0, limit: int = -1) -> str:
+        return self.file_handler.read_file(filename, offset, limit)
         
     def write_file(self, filename: str, file_content: str="", append: bool=True) -> str:
         return write_file(filename, file_content, append)
+    
+    def delete_files(self, filenames: list[str]) -> str:
+        return delete_files(*filenames)
     
     def browse_files(self, pattern: str = '*') -> str:
         return browse_file_candidates(pattern)
@@ -116,22 +142,26 @@ CALCULATE_META = {
     },
 }
 
-WEBSEARCH_META = {
+SEARCH_TEXT_META = {
     "type": "function",
     "function": {
-        "name": "web_search",
-        "description":(
-            "Search the internet and get a summary of the results. "
-            "This is not a comprehensive breakdown of the topic, "
-            "but an AI generated informative paragraph addressing the query directly. "
-            "If more details are needed, you can use the current summary to refine your next query."
+        "name": "search_text",
+        "description": (
+            "Get a listing of up to 10 textual web results from the internet using a query. "
+            "Use the text mode for general web results, books for bibliographic metadata, "
+            "or news for publication metadata."
         ),
         "parameters": {
             "type": "object",
             "properties": {
                 "query": {
                     "type": "string",
-                    "description": "A query to search the web with.",
+                    "description": "The query used to search the internet.",
+                },
+                "mode": {
+                    "type": "string",
+                    "enum": ["text", "books", "news"],
+                    "description": "The type of search results to return. Defaults to text.",
                 },
             },
             "required": ["query"],
@@ -139,15 +169,133 @@ WEBSEARCH_META = {
     },
 }
 
-READ_FILE_META = {
+SEARCH_IMAGE_META = {
     "type": "function",
     "function": {
-        "name": "read_file",
+        "name": "search_image",
+        "description":(
+            "Get a listing of up to 10 images from the internet using a query."
+        ),
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "query": {
+                    "type": "string",
+                    "description": "The query being used to search the internet",
+                },
+                "size": {
+                    "type": "string",
+                    "enum": ["Small", "Medium", "Large", "Wallpaper"],
+                    "description": "The image size category. Optional."
+                },
+                "colour": {
+                    "type": "string",
+                    "enum": ["color", "Monochrome", "Red", "Orange", "Yellow", "Green", "Blue", "Purple", "Pink", "Brown", "Black", "Gray", "Teal", "White"],
+                    "description": "The image colour category. Optional."
+                },
+                "image_type": {
+                    "type": "string",
+                    "enum": ["photo", "clipart", "gif", "transparent", "line"],
+                    "description": "The image style type. Optional."
+                },
+                "layout": {
+                    "type": "string",
+                    "enum": ["Square", "Tall", "Wide"],
+                    "description": "The image dimensions contraints. Optional."
+                }
+            },
+            "required": ["query"],
+        },
+    },
+}
+
+SEARCH_BOOKS_META = {
+    "type": "function",
+    "function": {
+        "name": "search_books",
+        "description":(
+            "Get a listing of up to 10 books from the internet using a query."
+        ),
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "query": {
+                    "type": "string",
+                    "description": "The query being used to search the internet",
+                }
+            },
+            "required": ["query"],
+        },
+    },
+}
+
+SUMMARIZE_PAGE_META = {
+    "type": "function",
+    "function": {
+        "name": "summarize_page",
+        "description":(
+            "Get a query oriented summary of the pages textual and image contents assuming its correctly formatted. "
+            "This is not a comprehensive breakdown of the page's markdown contents and its link structure, "
+            "but an AI generated informative paragraph addressing the query directly."
+        ),
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "query": {
+                    "type": "string",
+                    "description": "The query being used to refine the summary",
+                },
+                "url": {
+                    "type": "string",
+                    "description": "The url of the page being summarized",
+                },
+            },
+            "required": ["query", "url"],
+        },
+    },
+}
+
+SUMMARIZE_GALLERY_META = {
+    "type": "function",
+    "function": {
+        "name": "summarize_gallery",
+        "description":(
+            "Get a query oriented summary of image content. "
+            "This is not a comprehensive breakdown of the images appearance, composition, subject, or metadata, "
+            "but an AI generated informative paragraph addressing the query directly."
+        ),
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "query": {
+                    "type": "string",
+                    "description": "The query being used to refine the summary",
+                },
+                "image_urls": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    },
+                    "description": "A sequence of image urls (1 to 10 image urls).",
+                    "minItems": 1,
+                    "maxItems": 10
+                },
+            },
+            "required": ["query", "image_urls"],
+        },
+    },
+}
+
+SUMMARIZE_FILES_META = {
+    "type": "function",
+    "function": {
+        "name": "summarize_files",
         "description": (
-            "Search the file workspace and get a combined summary from up to 10 files. "
+            "Summarize up to 10 specified files from the file workspace. "
             "This is not a comprehensive breakdown of the files, "
             "but an AI generated informative paragraph of their collective content. "
-            "If a deeper view is needed, you can try reading fewer files at once."
+            "If a deeper view is needed, you can try reading fewer files at once. "
+            "summarize_files can only access files in the file-workspace/ directory."
         ),
         "parameters": {
             "type": "object",
@@ -167,16 +315,54 @@ READ_FILE_META = {
     }
 }
 
+# Llama Tool Schemas
+READ_FILE_META = {
+    "type": "function",
+    "function": {
+        "name": "read_file",
+        "description": (
+            "Read the contents of a single file from the file workspace. "
+            "Which can have its contents sliced using offset and limit. "
+            "If limit is negative (-1) it will read up to the end of file. "
+            "If you receive fewer lines then limit, the slice either hit the end of file, "
+            "Or exceeded the allowed token budget (10,000). "
+            "read_file can only access files in the file-workspace/ directory."
+        ),
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "filename": {
+                    "type": "string",
+                    "description": "The filename to use. Must end in a supported non-binary format (.txt, .md, .html, .json, .csv, .py, .js, or .css).",
+                    "pattern": "^.*\\.(txt|md|html|json|csv|py|js|css)$"
+                },
+                "offset": {
+                    "type": "integer",
+                    "description": "The number of lines to skip. Defaults to the start of the file.",
+                    "default": 0
+                },
+                "limit": {
+                    "type": "integer",
+                    "description": "The maximum number of lines to return. A negative value reads until end of file or the token budget is reached.",
+                    "default": -1
+                }
+            },
+            "required": ["filename"]
+        }
+    }
+}
+
 WRITE_FILE_META = {
     "type": "function",
     "function": {
         "name": "write_file",
         "description": (
             "Write or append to a single file in the file workspace. "
+            "Newlines need to be added manually for multiline content. "
             "During write mode, file_content will overwrite the file, or clear it if file_content is an empty string. "
             "During append mode, file_content will be added to the end of the file, or do nothing if file_content is an empty string. "
-            "If the file does not exist, it will be created. write_file can only access files in the file-workspace/generated/ directory. "
-            "newlines need to be added manually for multiline content."
+            "If the file does not exist, it will be created. "
+            "write_file can only access files in the file-workspace/generated/ directory."
         ),
         "parameters": {
             "type": "object",
@@ -198,6 +384,32 @@ WRITE_FILE_META = {
                 }
             },
             "required": ["filename"]
+        }
+    }
+}
+
+DELETE_FILES_META = {
+    "type": "function",
+    "function": {
+        "name": "delete_files",
+        "description": (
+            "Delete one or more files from the file workspace. "
+            "delete_files can only access files in the file-workspace/generated/ directory."
+        ),
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "filenames": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    },
+                    "description": "A sequence of filenames (1 to 10 files).",
+                    "minItems": 1,
+                    "maxItems": 10 # artificial limit to reduce file-IO within a single tool loop cycle
+                }
+            },
+            "required": ["filenames"]
         }
     }
 }

@@ -1,16 +1,16 @@
 from __future__ import annotations
 
+from collections import defaultdict
 from datetime import datetime, timezone
 import mimetypes
+from mmap import mmap
 from pathlib import Path
 
 from llama_cpp import Llama
 
-
 ROOT = Path(__file__).parents[1].resolve()
 WORKSPACE_ROOT = ROOT / "file-workspace"
 GENERATED_ROOT = WORKSPACE_ROOT / "generated"
-
 
 def is_sanctioned_file(path: Path) -> bool:
     """Return whether path is a regular, non-symlink file inside the workspace."""
@@ -19,7 +19,6 @@ def is_sanctioned_file(path: Path) -> bool:
         and path.is_file()
         and path.resolve().is_relative_to(WORKSPACE_ROOT)
     )
-
 
 def is_generated_path(path: Path) -> bool:
     """Return whether the resolved path lies inside the generated workspace."""
@@ -156,6 +155,49 @@ def write_file(
     return f"INFO: Successfully {action} to file {filename}"
 
 
+def delete_files(*filenames: str) -> str:
+    """Delete model-generated content inside the generated workspace."""
+    if not filenames:
+        return "WARNING: No file names were provided."
+
+    deleted: list[str] = []
+    failed: list[str] = []
+    invalid: list[str] = []
+    seen: set[str] = set()
+
+    for filename in filenames:
+        if filename in seen:
+            continue
+        seen.add(filename)
+
+        path = GENERATED_ROOT / filename
+
+        if not is_generated_path(path):
+            invalid.append(filename)
+            continue
+
+        try:
+            path.unlink()
+            deleted.append(filename)
+        except OSError:
+            failed.append(filename)
+
+    if len(deleted) == len(seen):
+        return "INFO: Successfully deleted all files."
+
+    results: list[str] = []
+
+    if deleted:
+        results.append(f'deleted: {", ".join(deleted)}')
+
+    if failed:
+        results.append(f'failed: {", ".join(failed)}')
+
+    if invalid:
+        results.append(f'invalid: {", ".join(invalid)}')
+
+    return f"RESULTS: {'; '.join(results)}"
+
 class FileHandler:
     def __init__(
         self,
@@ -260,7 +302,7 @@ class FileHandler:
         except OSError:
             return "ERROR: The file could not be read."
 
-    def _collect_valid_files(self, files: tuple[str, ...]) -> list[Path]:
+    def _collect_valid_files(self, *files: str) -> list[Path]:
         """Resolve and validate file arguments up to the configured batch limit."""
         valid_paths: list[Path] = []
         seen: set[Path] = set()
@@ -317,37 +359,34 @@ class FileHandler:
 
     def _summarize(self, source_text: str) -> str:
         """Summarize a collection of source text using the configured LLM."""
-        prompt = f"""
-Summarize the text below.
-
+        prompt = f"""<|system|>
+Write one informational paragraph that describes the plaintext files provided.
+<|end|>
+<|user|>
+FILES:
 {source_text}
 
-Write one informational paragraph that explains the content of the text files.
-
-Rules:
-- Do not repeat these instructions, or output text that describes these constraints.
-- Use only facts explicitly supported by the supplied information.
-- Do not use outside knowledge.
-- Preserve important qualifications and uncertainty.
-- If the information disagrees, briefly acknowledge the disagreement.
-- Do not use headings, bullets, labels, or meta-commentary.
-- Do not use quotation marks.
-- End with a complete sentence.
-- Output only the paragraph.
+RULES:
+Do not repeat or describe these rules.
+Do not use outside knowledge or combine separate details into an unsupported paraphrase.
+Do not add unrelated facts, generic descriptions, headings, bullets, labels, meta-commentary, or quotation marks.
+If the files are directly contradictory, state that the content is varied.
+End with a complete sentence and output only the paragraph.
+<|end|>
+<|assistant|>
 """
 
         response = self.llm(
             prompt,
             max_tokens=self.max_output_tokens,
             temperature=0.3,
-            stop=["</s>"],
         )
 
         return response["choices"][0]["text"].strip()
 
-    def read_files(self, *files: str) -> str:
+    def summarize_files(self, *filenames: str) -> str:
         """Read and collectively summarize a batch of workspace text files."""
-        valid_paths = self._collect_valid_files(files)
+        valid_paths = self._collect_valid_files(*filenames)
 
         if not valid_paths:
             return "ERROR: No readable files were provided."
@@ -368,3 +407,58 @@ Rules:
         source_text = "\n\n".join(source_sections)
 
         return self._summarize(source_text)
+
+    def read_file(self, filename: str, offset: int = 0, limit: int = -1) -> str:
+        file_paths = self._collect_valid_files(filename)
+
+        if not file_paths:
+            return "ERROR: The provided file is unreadable."
+
+        if offset < 0:
+            return "ERROR: Out of bounds"
+        
+        if limit == 0:
+            return "WARNING: A limit of 0 was used. No text to return."
+        
+        lines: list[str] = []
+        token_count = 0
+
+        file_paths[0].group()
+
+        with file_paths[0].open("rb") as f, mmap(f.fileno(), length=0, access=mmap.ACCESS_READ) as mm:
+            for _ in range(offset):    
+                pos = mm.find(b"\n", mm.tell())
+
+                if pos == -1:
+                    return "ERROR: Out of bounds"
+
+                mm.seek(pos + 1)
+                
+            while limit < 0 or len(lines) < limit:
+                line_bytes = mm.readline()
+                if not line_bytes:
+                    break
+                
+                remaining = self.max_source_tokens - token_count
+                if remaining <= 0:
+                    break
+                
+                line_tokens = self.tokenizer.tokenize(
+                    line_bytes,
+                    add_bos=False,
+                )
+
+                if len(line_tokens) <= remaining:
+                    # Decode to string before storing
+                    lines.append(line_bytes.decode("utf-8", errors="replace"))
+                    token_count += len(line_tokens)
+                    continue
+
+                truncated = self.tokenizer.detokenize(
+                    line_tokens[:remaining],
+                ).decode("utf-8", errors="replace")
+
+                lines.append(truncated)
+                break
+
+        return "".join(lines)

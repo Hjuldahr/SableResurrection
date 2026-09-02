@@ -11,7 +11,7 @@ from llama_cpp import Llama, LlamaTokenizer
 import sympy
 
 from db.memory_store import MemoryStore
-from net.search import QuerySummarizer
+from ai_tools.web_search import QuerySummarizer
 
 MATH_TOOL_META = {
     "type": "function",

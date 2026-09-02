@@ -1,5 +1,5 @@
 from llama_cpp import Llama 
-from search import QuerySummarizer 
+from ai_tools.web_search import QuerySummarizer 
 
 llm = Llama(
     "C:\\Users\\robert\\Documents\\VS Code Files\\SABLE-Revamp\\llm\\microsoft_Phi-4-mini-instruct-Q4_K_M.gguf",
@@ -13,7 +13,7 @@ llm = Llama(
 
 summarizer = QuerySummarizer(llm) 
 
-query = "How many species of butterfly are there in England?"
+query = "How many species of butterfly are there excluding England?"
 
 print(query)
 print(summarizer(query))

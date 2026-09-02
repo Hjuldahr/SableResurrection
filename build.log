@@ -1,0 +1,123 @@
+Collecting llama-cpp-python
+  Downloading llama_cpp_python-0.3.35.tar.gz (74.9 MB)
+     ---------------------------------------- 74.9/74.9 MB 11.6 MB/s  0:00:06
+  Installing build dependencies: started
+  Installing build dependencies: finished with status 'done'
+  Getting requirements to build wheel: started
+  Getting requirements to build wheel: finished with status 'done'
+  Installing backend dependencies: started
+  Installing backend dependencies: finished with status 'done'
+  Preparing metadata (pyproject.toml): started
+  Preparing metadata (pyproject.toml): finished with status 'done'
+Collecting typing-extensions>=4.5.0 (from llama-cpp-python)
+  Downloading typing_extensions-4.16.0-py3-none-any.whl.metadata (3.3 kB)
+Collecting numpy>=1.20.0 (from llama-cpp-python)
+  Downloading numpy-2.5.2-cp312-cp312-win_amd64.whl.metadata (6.6 kB)
+Collecting diskcache>=5.6.1 (from llama-cpp-python)
+  Downloading diskcache-5.6.3-py3-none-any.whl.metadata (20 kB)
+Collecting jinja2>=2.11.3 (from llama-cpp-python)
+  Downloading jinja2-3.1.6-py3-none-any.whl.metadata (2.9 kB)
+Collecting MarkupSafe>=2.0 (from jinja2>=2.11.3->llama-cpp-python)
+  Downloading markupsafe-3.0.3-cp312-cp312-win_amd64.whl.metadata (2.8 kB)
+Downloading diskcache-5.6.3-py3-none-any.whl (45 kB)
+Downloading jinja2-3.1.6-py3-none-any.whl (134 kB)
+Downloading markupsafe-3.0.3-cp312-cp312-win_amd64.whl (15 kB)
+Downloading numpy-2.5.2-cp312-cp312-win_amd64.whl (12.5 MB)
+   ---------------------------------------- 12.5/12.5 MB 12.4 MB/s  0:00:01
+Downloading typing_extensions-4.16.0-py3-none-any.whl (45 kB)
+Building wheels for collected packages: llama-cpp-python
+  Building wheel for llama-cpp-python (pyproject.toml): started
+  Building wheel for llama-cpp-python (pyproject.toml): finished with status 'error'
+  error: subprocess-exited-with-error
+  
+  Building wheel for llama-cpp-python (pyproject.toml) did not run successfully.
+  exit code: 1
+  
+  [77 lines of output]
+  *** scikit-build-core 1.0.3 using CMake 4.4.3 (wheel)
+  *** Configuring CMake...
+  CMake Error: Could not create named generator GPU_BLAS=ON
+  
+  Generators
+  * Visual Studio 18 2026        = Generates Visual Studio 2026 project files.
+                                   Use -A option to specify architecture.
+    Visual Studio 17 2022        = Generates Visual Studio 2022 project files.
+                                   Use -A option to specify architecture.
+    Visual Studio 16 2019        = Generates Visual Studio 2019 project files.
+                                   Use -A option to specify architecture.
+    Visual Studio 15 2017        = Generates Visual Studio 2017 project files.
+                                   Use -A option to specify architecture.
+    Visual Studio 14 2015        = Deprecated.  Generates Visual Studio 2015
+                                   project files.  Use -A option to specify
+                                   architecture.
+    Borland Makefiles            = Generates Borland makefiles.
+    NMake Makefiles              = Generates NMake makefiles.
+    NMake Makefiles JOM          = Generates JOM makefiles.
+    MSYS Makefiles               = Generates MSYS makefiles.
+    MinGW Makefiles              = Generates a make file for use with
+                                   mingw32-make.
+    Green Hills MULTI            = Generates Green Hills MULTI files
+                                   (experimental, work-in-progress).
+    Unix Makefiles               = Generates standard UNIX makefiles.
+    Ninja                        = Generates build.ninja files.
+    Ninja Multi-Config           = Generates build-<Config>.ninja files.
+    FASTBuild                    = Generates fbuild.bff files.
+    Watcom WMake                 = Generates Watcom WMake makefiles.
+    CodeBlocks - MinGW Makefiles = Generates CodeBlocks project files
+                                   (deprecated).
+    CodeBlocks - NMake Makefiles = Generates CodeBlocks project files
+                                   (deprecated).
+    CodeBlocks - NMake Makefiles JOM
+                                 = Generates CodeBlocks project files
+                                   (deprecated).
+    CodeBlocks - Ninja           = Generates CodeBlocks project files
+                                   (deprecated).
+    CodeBlocks - Unix Makefiles  = Generates CodeBlocks project files
+                                   (deprecated).
+    CodeLite - MinGW Makefiles   = Generates CodeLite project files
+                                   (deprecated).
+    CodeLite - NMake Makefiles   = Generates CodeLite project files
+                                   (deprecated).
+    CodeLite - Ninja             = Generates CodeLite project files
+                                   (deprecated).
+    CodeLite - Unix Makefiles    = Generates CodeLite project files
+                                   (deprecated).
+    Eclipse CDT4 - NMake Makefiles
+                                 = Generates Eclipse CDT 4.0 project files
+                                   (deprecated).
+    Eclipse CDT4 - MinGW Makefiles
+                                 = Generates Eclipse CDT 4.0 project files
+                                   (deprecated).
+    Eclipse CDT4 - Ninja         = Generates Eclipse CDT 4.0 project files
+                                   (deprecated).
+    Eclipse CDT4 - Unix Makefiles= Generates Eclipse CDT 4.0 project files
+                                   (deprecated).
+    Kate - MinGW Makefiles       = Generates Kate project files (deprecated).
+    Kate - NMake Makefiles       = Generates Kate project files (deprecated).
+    Kate - Ninja                 = Generates Kate project files (deprecated).
+    Kate - Ninja Multi-Config    = Generates Kate project files (deprecated).
+    Kate - Unix Makefiles        = Generates Kate project files (deprecated).
+    Sublime Text 2 - MinGW Makefiles
+                                 = Generates Sublime Text 2 project files
+                                   (deprecated).
+    Sublime Text 2 - NMake Makefiles
+                                 = Generates Sublime Text 2 project files
+                                   (deprecated).
+    Sublime Text 2 - Ninja       = Generates Sublime Text 2 project files
+                                   (deprecated).
+    Sublime Text 2 - Unix Makefiles
+                                 = Generates Sublime Text 2 project files
+                                   (deprecated).
+  
+  
+  *** CMake configuration failed
+  [end of output]
+  
+  note: This error originates from a subprocess, and is likely not a problem with pip.
+  ERROR: Failed building wheel for llama-cpp-python
+Failed to build llama-cpp-python
+error: failed-wheel-build-for-install
+
+Failed to build installable wheels for some pyproject.toml based projects
+
+llama-cpp-python
