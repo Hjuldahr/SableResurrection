@@ -1,18 +1,18 @@
 from __future__ import annotations
-import json
 import uuid
 from pathlib import Path
 from typing import Any, Protocol
 from qdrant_client import QdrantClient
-from qdrant_client.models import FieldCondition, Filter, MatchText, MatchValue, PointIdsList, ScoredPoint
+from qdrant_client.models import PointIdsList, Record
 
 # IDE Interface definition
 class FastEmbedQdrantClient(Protocol):
     def set_model(self, model_name: str) -> None: ...
     def add(self, collection_name: str, documents: list[str], metadata: list[dict], ids: list[str], parallel: int) -> None: ...
-    def query(self, collection_name: str, query_text: str, limit: int) -> list[ScoredPoint]: ...
-    def delete(self, collection_name: str, points_selector: Any) -> Any: ...
+    def query(self, collection_name: str, query_text: str, limit: int) -> list[Record]: ...
+    def delete(self, collection_name: str, points_selector: Any) -> None: ...
     def close(self) -> None: ...
+    def retrieve(self, collection_name: str, ids: list[str], with_payload: bool, with_vectors: bool) -> list[Record]: ...
 
 class NoteKeeper:
     COLLECTION_NAME = "Local-Companion-Memories"
@@ -24,17 +24,11 @@ class NoteKeeper:
         self._path = Path(storage_dir)
         self._path.mkdir(parents=True, exist_ok=True)
         
-        self._client: FastEmbedQdrantClient | None = None
-
-    def __enter__(self) -> NoteKeeper:
-        self._client = QdrantClient(path=str(self._path))
+        self._client: FastEmbedQdrantClient = QdrantClient(path=str(self._path))
         self._client.set_model(self.MODEL_NAME)
-        return self
 
-    def __exit__(self, exc_type, exc, tb):
-        if self._client:
-            self._client.close()
-        return False
+    def close(self):
+        self._client.close()
 
     def _get_stable_id(self, key: str) -> str:
         clean_key = key.strip().casefold()
@@ -56,19 +50,21 @@ class NoteKeeper:
             ids=[note_id],
             parallel=1 
         )
+        
         return f"INFO: Successfully (over)written note to topic '{topic}'"
 
-    def search(self, query: str, limit=10) -> str:
+    def search_topics(self, query: str, limit=10) -> str:
         points = self._client.query(
             collection_name=self.COLLECTION_NAME,
             query_text=query,
             limit=limit
         )
+        
         if points:
             return '\n'.join(f"- topic: '{p.payload['topic']}', relevance: {p.score:0.2%}" for p in points) 
         return f"No matching topics were found for the query '{query}'"
 
-    def select(self, topic: str) -> dict | None:
+    def select_note(self, topic: str) -> str:
         topic = self._normalize_topic(topic)
         note_id = self._get_stable_id(topic)
         
@@ -79,9 +75,11 @@ class NoteKeeper:
             with_vectors=False
         )
         
-        return records[0].payload if records else None
+        if not records:
+            return f"INFO: No match note found under the topic '{topic}'"
+        return records[0].payload['note']
 
-    def delete(self, topic: str) -> str:
+    def delete_note(self, topic: str) -> str:
         topic = self._normalize_topic(topic)
         note_id = self._get_stable_id(topic)
 
@@ -89,4 +87,5 @@ class NoteKeeper:
             collection_name=self.COLLECTION_NAME,
             points_selector=PointIdsList(points=[note_id])
         )
+        
         return f"INFO: Successfully deleted note under the topic '{topic}'"
