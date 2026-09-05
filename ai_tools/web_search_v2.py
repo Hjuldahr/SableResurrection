@@ -1,4 +1,3 @@
-import json
 import re
 from typing import Any, Iterator, NamedTuple
 from urllib.parse import urljoin

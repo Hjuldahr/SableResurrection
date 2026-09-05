@@ -1,14 +1,16 @@
+from pathlib import Path
+
 from llama_cpp import Llama
 
 from ai_tools.calculate import calculate
 from ai_tools.clock import clock
 from ai_tools.db import NoteKeeper
 from ai_tools.file_io import FileHandler, browse_file_candidates, delete_files, write_file
-from ai_tools.web_search_v2 import PageSummarizer, search_books, search_image, search_news, search_text
+from ai_tools.web_search_v2 import PageSummarizer, search_books, search_news, search_text
 
 class ToolManager:
-    def __init__(self, path: str | None = None):
-        self.path = path or 'C:\\Users\\robert\\Documents\\VS Code Files\\SABLE-Revamp\\llm\\gemma-4-E2B-it-Q4_K_M.gguf'
+    def __init__(self, path: Path):
+        self.path = str(path)
         
         self._llm: Llama | None = None
         self._page_summarizer: PageSummarizer | None = None
@@ -71,7 +73,10 @@ class ToolManager:
         return self._note_keeper
     
     def execute(self, command: str, **options: str) -> str:
-        if command.startswith('_') :
+        if command is None:
+            return f"WARNING: no command name was provided."
+        
+        if command.startswith('_'):
             return f"WARNING: '{command}' is not a legal tool."
         
         try:
@@ -133,4 +138,4 @@ class ToolManager:
         return self.note_keeper.select_note(topic)
     
     def delete_note(self, topic: str) -> str:
-        return self.delete_keeper.select_note(topic)
+        return self.note_keeper.delete_note(topic)
