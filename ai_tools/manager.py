@@ -8,6 +8,8 @@ from ai_tools.db import NoteKeeper
 from ai_tools.file_io import FileHandler, browse_file_candidates, delete_files, write_file
 from ai_tools.web_search_v2 import PageSummarizer, search_books, search_news, search_text
 
+# You can disable tools by adding _ to them but thats a temp testing-only trick since it desyncs the schema advertisement from the implementation
+
 class ToolManager:
     def __init__(self, path: Path):
         self.path = str(path)
