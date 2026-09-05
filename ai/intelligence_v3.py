@@ -12,6 +12,7 @@ from typing import Any, ClassVar
 from uuid import UUID, uuid4
 from llama_cpp import ChatCompletionRequestMessage, ChatCompletionTool, CreateChatCompletionResponse, Llama
 from ai_tools.manager import ToolManager
+from test import PositionalReader, Whence
 
 # CONSTANTS ===============================================
 
@@ -362,7 +363,7 @@ Always respond in character as Sable.
         if len(self.history) <= self.start_of_new_history:
             return
         
-        # Summarize number of bytes in the current context window
+        # Sum the serialized size of the current context window
         context_nbytes = 0
         total_tokens = 0
         cache = {}
@@ -389,7 +390,7 @@ Always respond in character as Sable.
         footer = self.HST_FTR.pack(context_nbytes)
         buffer.extend(footer) 
         
-        # Write the serialized data, overlapping the old footer bytes (4 long, whereas the record header is 5)
+        # Write the serialized data, overlapping the old footer bytes
         with self.HIST_STORE.open('r+b') as f:
             f.seek(-self.HST_FTR.size, os.SEEK_END)
             f.write(buffer)
@@ -401,26 +402,32 @@ Always respond in character as Sable.
         self.history = []
         self.start_of_new_history = 0
 
+        # Create if no existant
         if not self.HIST_STORE.exists():
             self.HIST_STORE.write_bytes(self.HST_FTR.pack(0))
             return
 
+        # Overwrite if undersized (would cause a negative backstep during writing)
         size = self.HIST_STORE.stat().st_size
         if size < self.HST_FTR.size:
             self.HIST_STORE.write_bytes(self.HST_FTR.pack(0))
             return
 
-        with self.HIST_STORE.open('rb') as f:
-            f.seek(-self.HST_FTR.size, os.SEEK_END)
-            context_nbytes, = self.HST_FTR.unpack(f.read(self.HST_FTR.size))
+        with PositionalReader(self.HIST_STORE) as f:
+            context_nbytes, = self.HST_FTR.unpack(
+                f[-self.HST_FTR.size : self.HST_FTR.size : -1]
+            )
+            view = memoryview(
+                f[-context_nbytes : context_nbytes : 0]
+            )
 
-            if context_nbytes > size - self.HST_FTR.size:
-                raise ValueError("Invalid history footer: context exceeds file size")
-
-            f.seek(-context_nbytes - self.HST_FTR.size, os.SEEK_END)
-            view = memoryview(f.read(context_nbytes))
-
+        # Scan through context window
         offset = 0
         while offset < context_nbytes:
             msg, offset = Message.unpack(view, offset)
             self.history.append(msg)
+            
+        # Advance journal boundary
+        self.start_of_new_history = len(self.history)
+        
+    
