@@ -391,10 +391,9 @@ Always respond in character as Sable.
         buffer.extend(footer) 
         
         # Write the serialized data, overlapping the old footer bytes
-        with self.HIST_STORE.open('r+b') as f:
-            f.seek(-self.HST_FTR.size, os.SEEK_END)
-            f.write(buffer)
-            f.truncate()
+        with PositionalEditor(self.HIST_STORE) as f:
+            f.select(-self.HST_FTR.size)
+            f.put(buffer)
             
         self.start_of_new_history = len(self.history)
 
@@ -412,14 +411,11 @@ Always respond in character as Sable.
         if size < self.HST_FTR.size:
             self.HIST_STORE.write_bytes(self.HST_FTR.pack(0))
             return
-
+        
         with PositionalEditor(self.HIST_STORE) as f:
-            context_nbytes, = self.HST_FTR.unpack(
-                f[-self.HST_FTR.size :]
-            )
-            view = memoryview(
-                f[: -context_nbytes : True]
-            )
+            f.select(-self.HST_FTR.size)
+            context_nbytes, = self.HST_FTR.unpack(f.fetch(self.HST_FTR.size))
+            view = memoryview(f.fetch(-context_nbytes))
 
         # Scan through context window
         offset = 0
