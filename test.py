@@ -1,14 +1,45 @@
-from enum import IntEnum
-import math
+from __future__ import annotations
 import os
 from pathlib import Path
 import json
 from typing import Iterator
 
 type serial = bytes | bytearray | memoryview 
-type serializable = serial | str | int | dict | list | tuple 
+type collections = dict | list | tuple | set
+type serializable = serial | str | int | collections
+
+def _default(other):
+    if isinstance(other, set):
+        return tuple(other)
+    return other
+
+def _encode_collection(data: collections) -> bytes:
+    return json.dumps(data, separators=(',', ':'), default=_default).encode('utf-8', 'replace')
+
+def _encode_string(data: str) -> bytes:
+    return data.encode('utf-8', 'replace')
+
+def _encode_bool(data: bool) -> bytes:
+    return b'\x01' if data else b'\x00'
+
+def _encode_int(data: int) -> bytes:
+    return data.to_bytes(
+        (((data + (data < 0)).bit_length() + 7) // 8) or 1, 
+        'little', signed=True
+    )
 
 class PositionalEditor:
+    _HANDLERS = {
+        str: _encode_string,
+        bool: _encode_bool,
+        int: _encode_int,
+        dict: _encode_collection,
+        list: _encode_collection,
+        tuple: _encode_collection,
+        set: _encode_collection,
+    }
+    BUFFER_SIZE = 1_048_576
+    
     def __init__(self, path: str | Path):
         self._path = path
         self._fd = None
@@ -57,25 +88,11 @@ class PositionalEditor:
         finally:
             os.lseek(self._fd, self._cursor, os.SEEK_SET)
 
-    @staticmethod
-    def _serialize(data: serializable) -> serial:
-        match data:
-            case str():
-                return data.encode('utf-8', 'replace')
-                
-            case bool():
-                return b'\x01' if data else b'\x00'
-                
-            case int():
-                bits = abs(data).bit_length() + (data < 0)
-                bites = (bits + 8) // 8
-                return data.to_bytes(bites or 1, byteorder='little', signed=True)
-            
-            case dict() | list() | tuple():
-                return json.dumps(data, indent=None, separators=(',', ':')).encode('utf-8', 'replace')
-                
-            case _:
-                return data
+    @classmethod
+    def _serialize(cls, data: serializable) -> serial:
+        if data.__class__ not in cls._HANDLERS:
+            return data
+        return cls._HANDLERS[data.__class__](data)
             
     def put(self, data: serializable) -> None:
         serialized = self._serialize(data)
@@ -163,13 +180,16 @@ class PositionalEditor:
         view = memoryview(data)
         i = 0
         while i < len(view):
+            # unbuffered to utilize kernel buffer + minimize sys calls
             i += os.write(self._fd, view[i:])
     
-    def __iadd__(self, other: serializable | "PositionalEditor") -> "PositionalEditor":
+    def __iadd__(self, other: serializable | PositionalEditor) -> PositionalEditor:
         try:
             os.lseek(self._fd, 0, os.SEEK_END)
 
             if isinstance(other, self.__class__):
+                if other is self:
+                    raise RuntimeWarning("Attempting to append to self")
                 try:
                     os.lseek(other._fd, other._cursor, os.SEEK_SET)
                     
@@ -177,7 +197,7 @@ class PositionalEditor:
                     i = 0
 
                     while i < length:
-                        block = os.read(other._fd, 1_048_576)
+                        block = os.read(other._fd, self.BUFFER_SIZE)
                         
                         if not block:
                             break
@@ -203,20 +223,25 @@ class PositionalEditor:
             if bytes.find(view, b'\n') != -1:
                 i = 0
                 n = len(view)
-
+                o = ord('\n')
                 while i < n:
                     j = bytes.find(view, b'\n', i)
 
                     if j == -1:
                         yield view[i:]
                         break
+                    
+                    j += 1
+                    # scan for contigous newlines
+                    while j < n and view[j] == o:
+                        j += 1
 
-                    yield view[i : j + 1]
-                    i = j + 1
+                    yield view[i : j]
+                    i = j
             else:
                 # fallback to 1 MB chunks when logical subdivision is not available
-                for i in range(0, len(view), 1_048_576):
-                    yield view[i:i + 1_048_576]
+                for i in range(0, len(view), self.BUFFER_SIZE):
+                    yield view[i:i + self.BUFFER_SIZE]
 
         finally:
             os.lseek(self._fd, self._cursor, os.SEEK_SET)
