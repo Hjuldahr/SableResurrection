@@ -12,7 +12,7 @@ from typing import Any, ClassVar
 from uuid import UUID, uuid4
 from llama_cpp import ChatCompletionRequestMessage, ChatCompletionTool, CreateChatCompletionResponse, Llama
 from ai_tools.manager import ToolManager
-from test import PositionalReader, Whence
+from test import PositionalEditor, PositionalReader, Whence
 
 # CONSTANTS ===============================================
 
@@ -413,12 +413,12 @@ Always respond in character as Sable.
             self.HIST_STORE.write_bytes(self.HST_FTR.pack(0))
             return
 
-        with PositionalReader(self.HIST_STORE) as f:
+        with PositionalEditor(self.HIST_STORE) as f:
             context_nbytes, = self.HST_FTR.unpack(
-                f[-self.HST_FTR.size : self.HST_FTR.size : -1]
+                f[-self.HST_FTR.size :]
             )
             view = memoryview(
-                f[-context_nbytes : context_nbytes : 0]
+                f[: -context_nbytes : True]
             )
 
         # Scan through context window
