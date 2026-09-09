@@ -1,18 +1,15 @@
 from __future__ import annotations
 from collections import deque
-from dataclasses import dataclass, field
 from enum import Enum
 import json
-import os
 from pathlib import Path
 import secrets
 import struct
 import time
-from typing import Any, ClassVar
-from uuid import UUID, uuid4
-from llama_cpp import ChatCompletionRequestMessage, ChatCompletionTool, CreateChatCompletionResponse, Llama
+from typing import Any
+from llama_cpp import ChatCompletionRequestMessage, ChatCompletionTool, CreateChatCompletionResponse, Llama, llama_chat_format
 from ai_tools.manager import ToolManager
-from test import PositionalEditor, PositionalReader, Whence
+from test import PositionalEditor
 
 # CONSTANTS ===============================================
 
@@ -123,15 +120,24 @@ class IDGenerator:
         return uid & 0xFFFFFFFFFFFFFFFF
 
 class Message:
-    __slots__ = ('uid', 'role', 'content', 'ntokens', 'transient')
+    __slots__ = ('uid', 'role', 'content', 'ntokens', 'attachments', 'transient')
     
     FMT = struct.Struct('<QBHH')
     
-    def __init__(self, role: Role, content: str, ntokens: int, transient: dict[str, Any] | None = None, uid: int | None = None):
+    def __init__(
+        self, 
+        role: Role, 
+        content: str, 
+        ntokens: int = 0, 
+        attachments: list[str] | None = None,
+        transient: dict[str, Any] | None = None, 
+        uid: int | None = None
+    ):
         self.uid = IDGenerator() if uid is None else uid
         self.role = role
         self.content = content
         self.ntokens = ntokens
+        self.attachments = attachments or []
         self.transient = transient or {}
     
     def pack(self) -> bytes:
@@ -226,26 +232,33 @@ Always respond in character as Sable.
             n_ubatch=256,
             verbose=False
         )
+        self.formatter = llama_chat_format.get_chat_completion_handler(self.llm.chat_format)
+        
+        self.template_baseline = 0
+        self.instruction_overhead = 0
         
         self.instruction = Message(
             Role.SYSTEM, 
             self.INSTRUCTION_PROMPT, 
-            self._count_tokens(self.INSTRUCTION_PROMPT)
         )
-        
-        tool_schema_tokens = self._count_tokens(
-            json.dumps(self.tool_schemas, indent=None, separators=(",", ":"))
-        )
+        self._token_count_message(self.instruction)
 
-        self.conservative_max_context_tokens = (
-            self.MAX_CONTEXT_TOKENS
-            - self.instruction.ntokens
-            - tool_schema_tokens
-            - self.MAX_OUTPUT_TOKENS
-        )
+        self._calculate_overhead()
+        self.conservative_max_context_tokens = self.MAX_CONTEXT_TOKENS - (self.MAX_OUTPUT_TOKENS + self.instruction_overhead)
     
-    def _count_tokens(self, text: str) -> int:
-        return len(self.llm.tokenize(text.encode('utf-8', 'replace')))
+    # Tokenization
+    def _count_tokens(self, messages: list[dict[str, Any]], tools: list[dict[str, Any]] | None = None) -> int:
+        formatted = self.formatter(llama=self.llm, messages=messages, tools=tools)
+        return len(self.llm.tokenize(formatted.prompt.encode("utf-8"), add_bos=False, special=True))
+    
+    def _token_count_message(self, message: Message) -> None:
+        msg_dict = message.to_dict()
+        message_count = self._count_tokens([msg_dict], tools=self.tool_schemas)
+        message.ntokens = message_count - self.template_baseline
+    
+    def _calculate_overhead(self) -> None:
+        self.template_baseline = self._count_tokens([], tools=self.tool_schemas)
+        self.instruction_overhead = self._count_tokens([self.instruction.to_dict()], tools=self.tool_schemas)
     
     def shutdown(self):
         self.llm.close()
@@ -310,13 +323,14 @@ Always respond in character as Sable.
         ))
 
     def generate(self) -> str:
-        ctx = self._acquire_ctx()
         message = None
         response = None
         finish_reason = None
 
         with ToolManager(str(self.AUX_AI)) as manager:
             for _ in range(self.REQ_TOOL_CALL_LIMIT):
+                ctx = self._acquire_ctx()
+                
                 response = self.llm.create_chat_completion(
                     messages=ctx,
                     tools=self.tool_schemas,
@@ -330,7 +344,6 @@ Always respond in character as Sable.
                 match finish_reason:
                     case "tool_calls":
                         self.resolve_tool_call(manager, response)
-                        ctx.extend(self.history[-2:]) # resync req state with app data
                     case "stop":
                         break
                     case "length":
@@ -341,7 +354,7 @@ Always respond in character as Sable.
             return "No response was generated"
 
         if finish_reason == "tool_calls":
-            # Tool-call budget exhausted; force a final textual response.
+            ctx = self._acquire_ctx()
             response = self.llm.create_chat_completion(
                 messages=ctx,
                 max_tokens=self.MAX_OUTPUT_TOKENS
@@ -350,11 +363,12 @@ Always respond in character as Sable.
 
         content = message.get("content") or "No content was generated"
 
-        self.history.append(Message(
+        assistant_msg = Message(
             role=Role.ASSISTANT,
-            content=content,
-            ntokens=response["usage"]["completion_tokens"]
-        ))
+            content=content
+        )
+        self._token_count_message(assistant_msg)
+        self.history.append(assistant_msg)
 
         return content
 
@@ -369,7 +383,7 @@ Always respond in character as Sable.
         cache = {}
         
         for record in reversed(self.history):
-            if total_tokens + record.ntokens > self.MAX_CTX_TOKENS:
+            if total_tokens + record.ntokens > self.MAX_CONTEXT_TOKENS:
                 break
             
             serialized = record.pack()
@@ -426,4 +440,17 @@ Always respond in character as Sable.
         # Advance journal boundary
         self.start_of_new_history = len(self.history)
         
-    
+    def submit(self, prompt: str, file_attachments: list[str] | None = None):
+        extra = {}
+        if file_attachments is not None:
+            extra['file_attachments'] = file_attachments
+        
+        msg = Message(
+            role=Role.USER,
+            content=prompt,
+            ntokens=None,
+            transient=extra
+        )
+        self._token_count_message(msg)
+        
+        self.history.append(msg)
