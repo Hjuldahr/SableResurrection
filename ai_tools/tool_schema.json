@@ -286,5 +286,34 @@
                 ]
             }
         }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "roll",
+            "description": "Roll virtual dice then get the results.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "sides": {
+                        "type": "integer",
+                        "description": "Path or filename of the file to write.",
+                        "minimum": 1
+                    },
+                    "count": {
+                        "type": "integer",
+                        "description": "Number of dice to roll.",
+                        "minimum": 1
+                    },
+                    "modifier": {
+                        "type": "integer",
+                        "description": "Whether to append to the file instead of replacing its contents."
+                    }
+                },
+                "required": [
+                    "filename"
+                ]
+            }
+        }
     }
 ]

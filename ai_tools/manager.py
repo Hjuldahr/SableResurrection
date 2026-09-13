@@ -6,6 +6,7 @@ from ai_tools.calculate import calculate
 from ai_tools.clock import clock
 from ai_tools.db import NoteKeeper
 from ai_tools.file_io import FileHandler, browse_file_candidates, delete_files, write_file
+from ai_tools.roller import roll
 from ai_tools.web_search_v2 import PageSummarizer, search_books, search_news, search_text
 
 # You can disable tools by adding _ to them but thats a temp testing-only trick since it desyncs the schema advertisement from the implementation
@@ -141,3 +142,6 @@ class ToolManager:
     
     def delete_note(self, topic: str) -> str:
         return self.note_keeper.delete_note(topic)
+    
+    def roll(self, sides: int, count: int = 1, modifier: int = 0) -> str:
+        return roll(sides, count, modifier)
