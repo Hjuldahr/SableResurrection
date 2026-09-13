@@ -8,8 +8,10 @@ import struct
 import time
 from typing import Any
 from llama_cpp import ChatCompletionRequestMessage, ChatCompletionTool, CreateChatCompletionResponse, Llama, llama_chat_format
+import sentence_transformers
 from ai_tools.manager import ToolManager
 from test import PositionalEditor
+from sentence_transformers import SentenceTransformer, util
 
 # CONSTANTS ===============================================
 
@@ -212,6 +214,8 @@ Always respond in character as Sable.
     MAX_CONTEXT_TOKENS = 32_768
     MAX_OUTPUT_TOKENS = 512
     
+    DEDUPLICATE_WINDOW = 60.0
+    
     HST_FTR = struct.Struct('<I')
     
     def __init__(self):
@@ -245,6 +249,12 @@ Always respond in character as Sable.
 
         self._calculate_overhead()
         self.conservative_max_context_tokens = self.MAX_CONTEXT_TOKENS - (self.MAX_OUTPUT_TOKENS + self.instruction_overhead)
+        
+        self.last_user_em = None
+        self.last_extra = {}
+        self.last_user_time = time.monotonic()
+        
+        self.sentence_model = SentenceTransformer('all-MiniLM-L6-v2')
     
     # Tokenization
     def _count_tokens(self, messages: list[dict[str, Any]], tools: list[dict[str, Any]] | None = None) -> int:
@@ -440,17 +450,40 @@ Always respond in character as Sable.
         # Advance journal boundary
         self.start_of_new_history = len(self.history)
         
-    def submit(self, prompt: str, file_attachments: list[str] | None = None):
+    def find_last_message_by_role(self, role: Role) -> Message | None:
+        return next((msg for msg in reversed(self.history) if msg.role == role), None)
+        
+    def submit(self, prompt: str, file_attachments: list[str] | None = None) -> bool:
+        prompt = prompt.strip()
+        
+        # Prevent temporally adjacent and semantically similar prompts from triggering another output
+        now = time.monotonic()
+        em = self.sentence_model.encode(prompt, convert_to_tensor=True)
+        
         extra = {}
+        
         if file_attachments is not None:
-            extra['file_attachments'] = file_attachments
+            extra['file_attachments'] = set(file_attachments)
+        
+        if (
+            self.last_user_em is not None
+            and now - self.last_user_time < self.DEDUPLICATE_WINDOW
+            and util.cos_sim(em, self.last_user_em).item() > 0.8
+            and extra == self.last_extra
+        ):
+                return False
         
         msg = Message(
             role=Role.USER,
             content=prompt,
             ntokens=None,
-            transient=extra
+            transient=extra,
         )
         self._token_count_message(msg)
         
+        self.last_user_em = em
+        self.last_extra = extra
+        self.last_user_time = now
+        
         self.history.append(msg)
+        return True
