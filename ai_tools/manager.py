@@ -6,12 +6,31 @@ from ai_tools.calculate import calculate
 from ai_tools.clock import clock
 from ai_tools.db import NoteKeeper
 from ai_tools.file_io import FileHandler, browse_file_candidates, delete_files, write_file
-from ai_tools.roller import roll
+from ai_tools.rng import Styles, randomizer
 from ai_tools.web_search_v2 import PageSummarizer, search_books, search_news, search_text
 
 # You can disable tools by adding _ to them but thats a temp testing-only trick since it desyncs the schema advertisement from the implementation
 
 class ToolManager:
+    TOOL_COSTS = {
+        "clock": 1,
+        "calculate": 1,
+        "randomizer": 1,
+        "search_text": 1,
+        "browse_files": 1,
+
+        "read_file": 2,
+        "write_file": 2,
+        "delete_files": 2,
+        "upsert_note": 2,
+        "search_topics": 2,
+        "select_note": 2,
+        "delete_note": 2,
+
+        "summarize_page": 3,
+        "summarize_files": 3
+    }
+    
     def __init__(self, path: Path):
         self.path = str(path)
         
@@ -37,6 +56,10 @@ class ToolManager:
             self._llm = None
         
         return False
+    
+    @classmethod
+    def get_cost(cls, tool_name: str) -> int | None:
+        return cls.TOOL_COSTS.get(tool_name)
     
     @property
     def llm(self) -> Llama:
@@ -143,5 +166,5 @@ class ToolManager:
     def delete_note(self, topic: str) -> str:
         return self.note_keeper.delete_note(topic)
     
-    def roll(self, sides: int, count: int = 1, modifier: int = 0) -> str:
-        return roll(sides, count, modifier)
+    def randomizer(self, style: Styles) -> str:
+        return randomizer(style)

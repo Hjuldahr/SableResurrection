@@ -8,85 +8,9 @@ import struct
 import time
 from typing import Any
 from llama_cpp import ChatCompletionRequestMessage, ChatCompletionTool, CreateChatCompletionResponse, Llama, llama_chat_format
-import sentence_transformers
-from ai_tools.manager import ToolManager
+from ai_tools.manager import TOOL_COSTS, ToolManager
 from test import PositionalEditor
 from sentence_transformers import SentenceTransformer, util
-
-# CONSTANTS ===============================================
-
-ROOT_PATH = Path(__file__).parents[1]
-
-PRIMARY_MODEL_PATH = ROOT_PATH / "llm" / "Meta-Llama-3.1-8B-Instruct-Q4_K_M.gguf"
-ANCILLARY_MODEL_PATH = ROOT_PATH / "llm" / "microsoft_Phi-4-mini-instruct-Q4_K_M.gguf"
-
-PRIMARY_LLM_PARAMS = {
-    'model_path': str(PRIMARY_MODEL_PATH),
-    'n_ctx': 16_000,
-    'n_threads': 4,
-    'n_gpu_layers': 0, 
-    'n_batch': 512,
-    'n_ubatch': 256,
-    'verbose': False,
-}
-
-PRIMARY_CONVERSATIONAL_PARAMS = {
-    'max_tokens': 250,            
-    'repeat_penalty': 1.05,       
-    'frequency_penalty': 0.1,
-    'presence_penalty': 0.0,
-    'temperature': 0.6            
-}
-
-PRIMARY_REFLECTION_PARAMS = {
-    'max_tokens': 450,            
-    'repeat_penalty': 1.0,        
-    'frequency_penalty': 0.0,
-    'presence_penalty': 0.0,
-    'temperature': 0.1          
-}
-
-PRIMARY_TOOL_PARAMS = {
-    'max_tokens': 350,
-    'repeat_penalty': 1.0,       
-    'frequency_penalty': 0.0,
-    'presence_penalty': 0.0,
-    'temperature': 0.0           
-}
-
-PRIMARY_REFLECTION_PROMPT = """
-Summarize the conversation into durable memories.
-
-User memories:
-
-Stable facts about the user.
-Long-term preferences.
-Ongoing projects.
-Only derive these from user messages.
-
-Self memories:
-
-Lessons about your own conversational behaviour.
-Successful interaction patterns.
-Mistakes to avoid.
-Improvements to your style.
-Only derive these from assistant messages.
-Do not attribute assistant statements to the user.
-
-Ignore temporary details and small talk.
-
-Return only the memories, without commentary about the summarization process.
-"""
-
-ANCILLARY_LLM_PARAMS = {
-    'model_path': str(ANCILLARY_MODEL_PATH), 
-    'n_ctx': 16_000, 
-    'n_threads': 4,
-    'n_gpu_layers': 18,
-    'n_batch': 512,
-    'n_ubatch': 256,
-    'verbose': False
-}
 
 class Role(Enum): 
     SYSTEM = ("system", None) 
@@ -183,7 +107,7 @@ class Message:
 
 class Sable:
     # AI must be generally aware of its own tool budget, but also have a rich persona.
-    INSTRUCTION_PROMPT = """You have a strict budget of at most 10 total tool executions to answer this user request.
+    INSTRUCTION_PROMPT = """You have a strict resource budget equivalent to 3 to 9 tool executions per user request, depending on the individual tools' resource costs.
 You are Sable, a playful and curious AI companion.
 Use a tool when it provides information or computation that you cannot reliably obtain from the current context.
 Never start a sentence with "As an AI" or "I don't have feelings."
@@ -210,7 +134,7 @@ Always respond in character as Sable.
     HIST_STORE = ROOT / 'session' / 'session.bin'
     TOOL_SCHEMA = ROOT / 'ai_tools' / 'compact_tool_schema.json'
     
-    REQ_TOOL_CALL_LIMIT = 10
+    REQ_TOOL_CALL_LIMIT = 9
     MAX_CONTEXT_TOKENS = 32_768
     MAX_OUTPUT_TOKENS = 512
     
@@ -295,7 +219,7 @@ Always respond in character as Sable.
         self,
         manager: ToolManager,
         response: CreateChatCompletionResponse,
-    ) -> None:
+    ) -> bool:
         assistant_tokens = response["usage"]["completion_tokens"]
         
         choice = response["choices"][0]
@@ -304,14 +228,15 @@ Always respond in character as Sable.
         tool_calls = message.get("tool_calls") or []
         
         if not tool_calls:
-            return
+            return False
         
         # Only one backend operation is resolved sequentially per model response to reduce state management and resource contention.
         tool_call = tool_calls[0] 
         function = tool_call["function"]
+        name = function["name"]
         arguments = json.loads(function.get("arguments", "{}"))
 
-        content = manager.execute(command=function["name"], **arguments)
+        content = manager.execute(command=name, **arguments)
         
         self.history.append(Message(
             role=Role.ASSISTANT,
@@ -328,17 +253,20 @@ Always respond in character as Sable.
             ntokens=len(self.llm.tokenize(content.encode('utf-8'))),
             transient={
                 "tool_call_id": tool_call["id"],
-                "name": function["name"]
+                "name": name
             }
         ))
+        
+        return True
 
     def generate(self) -> str:
         message = None
         response = None
         finish_reason = None
+        tool_budget_usage = 0
 
         with ToolManager(str(self.AUX_AI)) as manager:
-            for _ in range(self.REQ_TOOL_CALL_LIMIT):
+            while tool_budget_usage < self.REQ_TOOL_CALL_LIMIT:
                 ctx = self._acquire_ctx()
                 
                 response = self.llm.create_chat_completion(
@@ -350,10 +278,14 @@ Always respond in character as Sable.
                 choice = response["choices"][0]
                 message = choice["message"]
                 finish_reason = choice["finish_reason"]
-
                 match finish_reason:
                     case "tool_calls":
-                        self.resolve_tool_call(manager, response)
+                        cost = manager.get_cost(message['tool_calls'][0]["function"]["name"])
+                        if cost is not None and tool_budget_usage + cost <= self.REQ_TOOL_CALL_LIMIT:
+                            if self.resolve_tool_call(manager, response):
+                                tool_budget_usage += cost
+                        else:
+                            tool_budget_usage += 1
                     case "stop":
                         break
                     case "length":

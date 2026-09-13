@@ -290,28 +290,25 @@
     {
         "type": "function",
         "function": {
-            "name": "roll",
-            "description": "Roll virtual dice then get the results.",
+            "name": "randomizer",
+            "description": "Assorted stochastic utilities that produce actual random results. Coin flip flips a coin. Dice roll rolls a 20-sided die. Poker hand deals 5 playing cards. Tarot reading deals 3 tarot cards. Secret token generates a cryptographically secure random string.",
             "parameters": {
                 "type": "object",
                 "properties": {
-                    "sides": {
-                        "type": "integer",
-                        "description": "Path or filename of the file to write.",
-                        "minimum": 1
-                    },
-                    "count": {
-                        "type": "integer",
-                        "description": "Number of dice to roll.",
-                        "minimum": 1
-                    },
-                    "modifier": {
-                        "type": "integer",
-                        "description": "Whether to append to the file instead of replacing its contents."
+                    "style": {
+                        "type": "string",
+                        "enum": [
+                            "coin flip",
+                            "dice roll",
+                            "poker hand",
+                            "tarot reading",
+                            "secret token"
+                        ],
+                        "description": "The type of random result to generate."
                     }
                 },
                 "required": [
-                    "filename"
+                    "style"
                 ]
             }
         }
