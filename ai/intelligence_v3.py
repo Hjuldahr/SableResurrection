@@ -220,7 +220,7 @@ Always respond in character as Sable.
         manager: ToolManager,
         response: CreateChatCompletionResponse,
         tool_call: dict[str, Any],
-    ) -> bool:
+    ) -> None:
         assistant_tokens = response["usage"]["completion_tokens"]
         message = response["choices"][0]["message"]
 
@@ -246,9 +246,6 @@ Always respond in character as Sable.
                 "name": name,
             },
         ))
-
-        return True
-
 
     def generate(self) -> str:
         message = None
@@ -280,8 +277,8 @@ Always respond in character as Sable.
                             tool_budget_usage += 1
                             continue
 
-                        if self.resolve_tool_call(manager, response, tool_call):
-                            tool_budget_usage += cost
+                        self.resolve_tool_call(manager, response, tool_call):
+                        tool_budget_usage += cost
 
                     case "stop":
                         break
