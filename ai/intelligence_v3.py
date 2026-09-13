@@ -219,45 +219,36 @@ Always respond in character as Sable.
         self,
         manager: ToolManager,
         response: CreateChatCompletionResponse,
+        tool_call: dict[str, Any],
     ) -> bool:
         assistant_tokens = response["usage"]["completion_tokens"]
-        
-        choice = response["choices"][0]
-        message = choice["message"]
-        
-        tool_calls = message.get("tool_calls") or []
-        
-        if not tool_calls:
-            return False
-        
-        # Only one backend operation is resolved sequentially per model response to reduce state management and resource contention.
-        tool_call = tool_calls[0] 
+        message = response["choices"][0]["message"]
+
         function = tool_call["function"]
         name = function["name"]
         arguments = json.loads(function.get("arguments", "{}"))
 
         content = manager.execute(command=name, **arguments)
-        
+
         self.history.append(Message(
             role=Role.ASSISTANT,
             content=message.get("content") or "No content found.",
             ntokens=assistant_tokens,
-            transient={
-                "tool_calls": message.get("tool_calls")
-            }
+            transient={"tool_calls": message["tool_calls"]},
         ))
-        
+
         self.history.append(Message(
             role=Role.TOOL,
             content=content,
-            ntokens=len(self.llm.tokenize(content.encode('utf-8'))),
+            ntokens=len(self.llm.tokenize(content.encode("utf-8"))),
             transient={
                 "tool_call_id": tool_call["id"],
-                "name": name
-            }
+                "name": name,
+            },
         ))
-        
+
         return True
+
 
     def generate(self) -> str:
         message = None
@@ -268,26 +259,33 @@ Always respond in character as Sable.
         with ToolManager(str(self.AUX_AI)) as manager:
             while tool_budget_usage < self.REQ_TOOL_CALL_LIMIT:
                 ctx = self._acquire_ctx()
-                
+
                 response = self.llm.create_chat_completion(
                     messages=ctx,
                     tools=self.tool_schemas,
-                    max_tokens=self.MAX_OUTPUT_TOKENS
+                    max_tokens=self.MAX_OUTPUT_TOKENS,
                 )
-                
+
                 choice = response["choices"][0]
                 message = choice["message"]
                 finish_reason = choice["finish_reason"]
+
                 match finish_reason:
                     case "tool_calls":
-                        cost = manager.get_cost(message['tool_calls'][0]["function"]["name"])
-                        if cost is not None and tool_budget_usage + cost <= self.REQ_TOOL_CALL_LIMIT:
-                            if self.resolve_tool_call(manager, response):
-                                tool_budget_usage += cost
-                        else:
+                        tool_call = message["tool_calls"][0]
+                        name = tool_call["function"]["name"]
+                        cost = manager.get_cost(name)
+
+                        if cost is None or tool_budget_usage + cost > self.REQ_TOOL_CALL_LIMIT:
                             tool_budget_usage += 1
+                            continue
+
+                        if self.resolve_tool_call(manager, response, tool_call):
+                            tool_budget_usage += cost
+
                     case "stop":
                         break
+
                     case "length":
                         print("generate warning: chat reply completed early due to running out of tokens")
                         break
@@ -296,10 +294,9 @@ Always respond in character as Sable.
             return "No response was generated"
 
         if finish_reason == "tool_calls":
-            ctx = self._acquire_ctx()
             response = self.llm.create_chat_completion(
-                messages=ctx,
-                max_tokens=self.MAX_OUTPUT_TOKENS
+                messages=self._acquire_ctx(),
+                max_tokens=self.MAX_OUTPUT_TOKENS,
             )
             message = response["choices"][0]["message"]
 
@@ -307,7 +304,7 @@ Always respond in character as Sable.
 
         assistant_msg = Message(
             role=Role.ASSISTANT,
-            content=content
+            content=content,
         )
         self._token_count_message(assistant_msg)
         self.history.append(assistant_msg)
