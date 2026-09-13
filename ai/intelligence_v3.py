@@ -277,7 +277,7 @@ Always respond in character as Sable.
                             tool_budget_usage += 1
                             continue
 
-                        self.resolve_tool_call(manager, response, tool_call):
+                        self.resolve_tool_call(manager, response, tool_call)
                         tool_budget_usage += cost
 
                     case "stop":
