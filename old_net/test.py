@@ -1,5 +1,5 @@
 from llama_cpp import Llama 
-from ai_tools.web_search import QuerySummarizer 
+from old_ai_tools.web_search import QuerySummarizer 
 
 llm = Llama(
     "C:\\Users\\robert\\Documents\\VS Code Files\\SABLE-Revamp\\llm\\microsoft_Phi-4-mini-instruct-Q4_K_M.gguf",

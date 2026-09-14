@@ -8,7 +8,7 @@ import struct
 import time
 from typing import Any
 from llama_cpp import ChatCompletionRequestMessage, ChatCompletionTool, CreateChatCompletionResponse, Llama, llama_chat_format
-from ai_tools.manager import TOOL_COSTS, ToolManager
+from ai_tools.manager import ToolManager
 from test import PositionalEditor
 from sentence_transformers import SentenceTransformer, util
 
@@ -54,8 +54,7 @@ class Message:
         self, 
         role: Role, 
         content: str, 
-        ntokens: int = 0, 
-        attachments: list[str] | None = None,
+        ntokens: int | None = None, 
         transient: dict[str, Any] | None = None, 
         uid: int | None = None
     ):
@@ -63,7 +62,6 @@ class Message:
         self.role = role
         self.content = content
         self.ntokens = ntokens
-        self.attachments = attachments or []
         self.transient = transient or {}
     
     def pack(self) -> bytes:
@@ -145,7 +143,7 @@ Always respond in character as Sable.
     def __init__(self):
         self.history: list[Message] = []
         self.start_of_new_history = 0
-        self._restore_history()
+        self.restore_history()
         
         self.tool_schemas = self._acquire_tool_schemas()
         
@@ -179,6 +177,13 @@ Always respond in character as Sable.
         self.last_user_time = time.monotonic()
         
         self.sentence_model = SentenceTransformer('all-MiniLM-L6-v2')
+    
+    def close(self):
+        self.append_history()
+        self.llm.close()
+        
+        self.llm = None
+        self.sentence_model = None
     
     # Tokenization
     def _count_tokens(self, messages: list[dict[str, Any]], tools: list[dict[str, Any]] | None = None) -> int:
@@ -308,7 +313,7 @@ Always respond in character as Sable.
 
         return content
 
-    def _append_history(self):
+    def append_history(self):
         # No new records added
         if len(self.history) <= self.start_of_new_history:
             return
@@ -347,7 +352,7 @@ Always respond in character as Sable.
             
         self.start_of_new_history = len(self.history)
 
-    def _restore_history(self):
+    def restore_history(self):
         self.history = []
         self.start_of_new_history = 0
 
@@ -379,7 +384,7 @@ Always respond in character as Sable.
     def find_last_message_by_role(self, role: Role) -> Message | None:
         return next((msg for msg in reversed(self.history) if msg.role == role), None)
         
-    def submit(self, prompt: str, file_attachments: list[str] | None = None) -> bool:
+    def submit(self, prompt: str, file_attachments: list[str | Path] | None = None) -> bool:
         prompt = prompt.strip()
         
         # Prevent temporally adjacent and semantically similar prompts from triggering another output
@@ -388,14 +393,14 @@ Always respond in character as Sable.
         
         extra = {}
         
-        if file_attachments is not None:
+        if file_attachments:
             extra['file_attachments'] = set(file_attachments)
         
         if (
             self.last_user_em is not None
+            and extra == self.last_extra
             and now - self.last_user_time < self.DEDUPLICATE_WINDOW
             and util.cos_sim(em, self.last_user_em).item() > 0.8
-            and extra == self.last_extra
         ):
                 return False
         
