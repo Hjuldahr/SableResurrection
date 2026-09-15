@@ -10,7 +10,6 @@ from typing import Any
 from llama_cpp import ChatCompletionRequestMessage, ChatCompletionTool, CreateChatCompletionResponse, Llama, llama_chat_format
 from ai.pos_editor import PositionalEditor
 from ai_tools.manager import ToolManager
-from sentence_transformers import SentenceTransformer, util
 
 class Role(Enum): 
     SYSTEM = ("system", None) 
@@ -171,12 +170,6 @@ Always respond in character as Sable.
 
         self._calculate_overhead()
         self.conservative_max_context_tokens = self.MAX_CONTEXT_TOKENS - (self.MAX_OUTPUT_TOKENS + self.instruction_overhead)
-        
-        self.last_user_em = None
-        self.last_extra = {}
-        self.last_user_time = time.monotonic()
-        
-        self.sentence_model = SentenceTransformer('all-MiniLM-L6-v2')
     
     def close(self):
         self.append_history()
@@ -396,14 +389,6 @@ Always respond in character as Sable.
         if file_attachments:
             extra['file_attachments'] = set(file_attachments)
         
-        if (
-            self.last_user_em is not None
-            and extra == self.last_extra
-            and now - self.last_user_time < self.DEDUPLICATE_WINDOW
-            and util.cos_sim(em, self.last_user_em).item() > 0.8
-        ):
-                return False
-        
         msg = Message(
             role=Role.USER,
             content=prompt,
@@ -411,10 +396,6 @@ Always respond in character as Sable.
             transient=extra,
         )
         self._token_count_message(msg)
-        
-        self.last_user_em = em
-        self.last_extra = extra
-        self.last_user_time = now
         
         self.history.append(msg)
         return True

@@ -17,8 +17,6 @@ call ".\install-cpp.bat"
 
 python -m pip install -r requirements.txt || exit /b 1
 
-python -m pip install huggingface_hub || exit /b 1
-
 mkdir llm 2>nul
 :: requires auth to be allowed by hf services
 set HF_XET_HIGH_PERFORMANCE=1 

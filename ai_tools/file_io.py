@@ -1,11 +1,8 @@
 from __future__ import annotations
-
-from collections import defaultdict
 from datetime import datetime, timezone
 import mimetypes
 from mmap import mmap
 from pathlib import Path
-
 from llama_cpp import Llama
 
 ROOT = Path(__file__).parents[1].resolve()

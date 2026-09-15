@@ -1,5 +1,4 @@
 from pathlib import Path
-
 from llama_cpp import Llama
 
 from ai_tools.calculate import calculate
