@@ -8,6 +8,7 @@ import struct
 import time
 from typing import Any
 from llama_cpp import ChatCompletionRequestMessage, ChatCompletionTool, CreateChatCompletionResponse, Llama, llama_chat_format
+
 from ai.pos_editor import PositionalEditor
 from ai_tools.manager import ToolManager
 
@@ -129,7 +130,8 @@ Always respond in character as Sable.
     CORE_AI = ROOT / 'llm' / 'Meta-Llama-3.1-8B-Instruct-Q4_K_M.gguf'
     AUX_AI = ROOT / 'llm' / 'gemma-4-E2B-it-Q4_K_M.gguf'
     HIST_STORE = ROOT / 'session' / 'session.bin'
-    TOOL_SCHEMA = ROOT / 'ai_tools' / 'compact_tool_schema.json'
+    TOOL_SCHEMA = ROOT / 'ai_tools' / 'tool_schema.json'
+    CHAT_FORMAT = 'llama-3'
     
     REQ_TOOL_CALL_LIMIT = 9
     MAX_CONTEXT_TOKENS = 32_768
@@ -157,19 +159,18 @@ Always respond in character as Sable.
             n_ubatch=256,
             verbose=False
         )
-        self.formatter = llama_chat_format.get_chat_completion_handler(self.llm.chat_format)
+        self.chat_handler = self._acquire_chat_formatter()
         
         self.template_baseline = 0
         self.instruction_overhead = 0
+        self.conservative_max_context_tokens = 0
         
         self.instruction = Message(
             Role.SYSTEM, 
             self.INSTRUCTION_PROMPT, 
         )
+        self._calculate_overhead() # Resolve implicit complexity introduced by chat format handler
         self._token_count_message(self.instruction)
-
-        self._calculate_overhead()
-        self.conservative_max_context_tokens = self.MAX_CONTEXT_TOKENS - (self.MAX_OUTPUT_TOKENS + self.instruction_overhead)
     
     def close(self):
         self.append_history()
@@ -180,23 +181,28 @@ Always respond in character as Sable.
     
     # Tokenization
     def _count_tokens(self, messages: list[dict[str, Any]], tools: list[dict[str, Any]] | None = None) -> int:
-        formatted = self.formatter(llama=self.llm, messages=messages, tools=tools)
-        return len(self.llm.tokenize(formatted.prompt.encode("utf-8"), add_bos=False, special=True))
+        formatted = self.chat_handler(llama=self.llm, messages=messages, tools=tools)
+        return formatted["usage"]["prompt_tokens"]
     
     def _token_count_message(self, message: Message) -> None:
         msg_dict = message.to_dict()
         message_count = self._count_tokens([msg_dict], tools=self.tool_schemas)
+        
         message.ntokens = message_count - self.template_baseline
     
     def _calculate_overhead(self) -> None:
         self.template_baseline = self._count_tokens([], tools=self.tool_schemas)
         self.instruction_overhead = self._count_tokens([self.instruction.to_dict()], tools=self.tool_schemas)
+        self.conservative_max_context_tokens = self.MAX_CONTEXT_TOKENS - (self.MAX_OUTPUT_TOKENS + self.instruction_overhead)
     
-    def shutdown(self):
-        self.llm.close()
-        
+    def _acquire_chat_formatter(self) -> llama_chat_format.LlamaChatCompletionHandler:
+        # Because llm.chat_handler is None, and llm.chat_format = chat_template.default which is not in the global registry, 
+        # it is instead hardcoded as a class level constant due to it being unlikely to change
+        return llama_chat_format.get_chat_completion_handler(self.CHAT_FORMAT)
+    
     def _acquire_tool_schemas(self) -> list[ChatCompletionTool]:
-        return json.load(self.TOOL_SCHEMA)
+        with self.TOOL_SCHEMA.open("r", encoding="utf-8") as f:
+            return json.load(f)
 
     def _acquire_ctx(self) -> list[ChatCompletionRequestMessage]: 
         ctx = deque() 
@@ -317,7 +323,7 @@ Always respond in character as Sable.
         cache = {}
         
         for record in reversed(self.history):
-            if total_tokens + record.ntokens > self.MAX_CONTEXT_TOKENS:
+            if total_tokens + record.ntokens > self.conservative_max_context_tokens:
                 break
             
             serialized = record.pack()
@@ -356,7 +362,7 @@ Always respond in character as Sable.
 
         # Overwrite if undersized (would cause a negative backstep during writing)
         size = self.HIST_STORE.stat().st_size
-        if size < self.HST_FTR.size:
+        if size <= self.HST_FTR.size:
             self.HIST_STORE.write_bytes(self.HST_FTR.pack(0))
             return
         
@@ -377,17 +383,13 @@ Always respond in character as Sable.
     def find_last_message_by_role(self, role: Role) -> Message | None:
         return next((msg for msg in reversed(self.history) if msg.role == role), None)
         
-    def submit(self, prompt: str, file_attachments: list[str | Path] | None = None) -> bool:
+    def submit(self, prompt: str, file_attachments: list[str | Path] | None = None) -> None:
         prompt = prompt.strip()
-        
-        # Prevent temporally adjacent and semantically similar prompts from triggering another output
-        now = time.monotonic()
-        em = self.sentence_model.encode(prompt, convert_to_tensor=True)
-        
+    
         extra = {}
         
         if file_attachments:
-            extra['file_attachments'] = set(file_attachments)
+            extra['file_attachments'] = file_attachments
         
         msg = Message(
             role=Role.USER,
@@ -398,4 +400,3 @@ Always respond in character as Sable.
         self._token_count_message(msg)
         
         self.history.append(msg)
-        return True
