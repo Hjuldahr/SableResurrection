@@ -8,8 +8,8 @@ import struct
 import time
 from typing import Any
 from llama_cpp import ChatCompletionRequestMessage, ChatCompletionTool, CreateChatCompletionResponse, Llama, llama_chat_format
+from ai.pos_editor import PositionalEditor
 from ai_tools.manager import ToolManager
-from test import PositionalEditor
 from sentence_transformers import SentenceTransformer, util
 
 class Role(Enum): 

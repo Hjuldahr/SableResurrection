@@ -2,11 +2,12 @@ import asyncio
 from pathlib import Path
 
 import discord
+from discord.bot import Bot
 from dotenv import load_dotenv
 from ai.intelligence_v3 import Sable
 
 load_dotenv()
-bot = discord.Bot()
+bot = Bot()
 
 sable = Sable()
 
@@ -16,6 +17,9 @@ async def can_reply(message: discord.Message) -> bool:
     # Don't reply to bot messages, including own replies
     if message.author.bot:
         return False
+
+    if isinstance(message.channel, discord.DMChannel):
+        return True
 
     # Don't reply to broadcasts or news-channel messages
     if message.mention_everyone or message.channel.is_news():
