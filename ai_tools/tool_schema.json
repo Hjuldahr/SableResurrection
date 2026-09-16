@@ -37,8 +37,8 @@
     {
         "type": "function",
         "function": {
-            "name": "search_text",
-            "description": "Search the web for relevant pages, books, or news.",
+            "name": "web_search",
+            "description": "Search the web for relevant texts, books, or news.",
             "parameters": {
                 "type": "object",
                 "properties": {

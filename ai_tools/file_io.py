@@ -6,13 +6,11 @@ from pathlib import Path
 from typing import NamedTuple
 from llama_cpp import Llama
 
+from ai_tools.dto import DTO, ResourceFlags
+
 ROOT = Path(__file__).parents[1].resolve()
 WORKSPACE_ROOT = ROOT / "file-workspace"
 GENERATED_ROOT = WORKSPACE_ROOT / "generated"
-
-class FileResult(NamedTuple):
-    text: str
-    file_paths: list[Path]
 
 def is_sanctioned_file(path: Path) -> bool:
     """Return whether path is a regular, non-symlink file inside the workspace."""
@@ -59,10 +57,10 @@ def file_stats(file: Path) -> tuple[str, str, str, str]:
         format_size(stats.st_size),
     )
 
-def browse_file_candidates(pattern: str = "*") -> FileResult:
+def browse_file_candidates(pattern: str = "*") -> tuple[str, list[DTO]]:
     """Return metadata and previews for readable files matching a workspace glob."""
     if not WORKSPACE_ROOT.exists():
-        return FileResult("WARNING: File workspace has not been initialized.", [])
+        return "WARNING: File workspace has not been initialized.", []
 
     data: list[str] = []
     file_paths: list[Path] = []
@@ -97,24 +95,24 @@ def browse_file_candidates(pattern: str = "*") -> FileResult:
         file_paths.append(file)
 
     if not data:
-        return FileResult(f"INFO: No files were found for the glob pattern: {pattern}.", [])
+        return f"INFO: No files were found for the glob pattern: {pattern}.", []
 
-    return FileResult("\n".join(data), file_paths)
+    return "\n".join(data), [DTO(fp.name, ResourceFlags.BROWSED | ResourceFlags.FILE, fp, fp.suffix) for fp in file_paths]
 
 def write_file(
     filename: str,
     file_content: str,
     *,
     append: bool = True,
-) -> FileResult:
+) -> tuple[str, list[DTO]]:
     """Write model-generated content inside the generated workspace."""
     path = GENERATED_ROOT / filename
 
     if not is_generated_path(path):
-        return FileResult("WARNING: Filepath is outside the permitted generated workspace.", [])
+        return "WARNING: Filepath is outside the permitted generated workspace.", []
 
     if append and not file_content.strip():
-        return FileResult("INFO: No content to append.", [])
+        return "INFO: No content to append.", []
 
     try:
         path.parent.mkdir(parents=True, exist_ok=True)
@@ -129,21 +127,21 @@ def write_file(
 
         print(f"Failed to {action} file {filename}: {exc}")
 
-        return FileResult(f"ERROR: Failed to {action} file {filename}: {exc}", [path])
+        return f"ERROR: Failed to {action} file {filename}: {exc}", [DTO(filename, ResourceFlags.PROCESSED | ResourceFlags.FILE, path, path.suffix)]
 
     action = "appended" if append else "wrote"
 
-    return FileResult(f"INFO: Successfully {action} to file {filename}", [path])
+    return f"INFO: Successfully {action} to file {filename}", [DTO(filename, ResourceFlags.PROCESSED | ResourceFlags.FILE, path, path.suffix)]
 
-def delete_files(filenames: list[str]) -> FileResult:
+def delete_files(filenames: list[str]) -> tuple[str, list[DTO]]:
     """Delete model-generated content inside the generated workspace."""
     if not filenames:
-        return FileResult("WARNING: No file names were provided.", [])
+        return "WARNING: No file names were provided.", []
 
-    deleted: list[str] = []
-    failed: list[str] = []
-    invalid: list[str] = []
-    seen: set[str] = set()
+    deleted: list[Path] = []
+    failed: list[Path] = []
+    invalid: list[Path] = []
+    seen: set[Path] = set()
 
     for filename in filenames:
         if filename in seen:
@@ -154,30 +152,28 @@ def delete_files(filenames: list[str]) -> FileResult:
         path = GENERATED_ROOT / filename
 
         if not is_generated_path(path):
-            invalid.append(filename)
+            invalid.append(path)
             continue
 
         try:
             path.unlink()
-            deleted.append(filename)
+            deleted.append(path)
         except OSError:
-            failed.append(filename)
+            failed.append(path)
 
     if len(deleted) == len(seen):
-        return FileResult("INFO: Successfully deleted all files.", [])
+        return "INFO: Successfully deleted all files.", [DTO(fp.name, ResourceFlags.PROCESSED | ResourceFlags.FILE, fp, fp.suffix) for fp in deleted]
 
     results: list[str] = []
 
     if deleted:
-        results.append(f'deleted: {", ".join(deleted)}')
-
+        results.append(f'deleted: {", ".join(str(fp.relative_to(GENERATED_ROOT)) for fp in deleted)}')
     if failed:
-        results.append(f'failed: {", ".join(failed)}')
-
+        results.append(f'failed: {", ".join(str(fp.relative_to(GENERATED_ROOT)) for fp in failed)}')
     if invalid:
-        results.append(f'invalid: {", ".join(invalid)}')
+        results.append(f'invalid: {", ".join(str(fp.relative_to(GENERATED_ROOT)) for fp in invalid)}')
 
-    return FileResult(f"RESULTS: {'; '.join(results)}", [])
+    return f"RESULTS: {'; '.join(results)}", [DTO(fp.name, ResourceFlags.PROCESSED | ResourceFlags.FILE, fp, fp.suffix) for fp in deleted]
 
 class FileHandler:
     def __init__(
@@ -369,51 +365,53 @@ End with a complete sentence and output only the paragraph."""
 
         return response["choices"][0]["text"].strip()
 
-    def summarize_files(self, filenames: list[str]) -> FileResult:
+    def summarize_files(self, filenames: list[str]) -> tuple[str, list[DTO]]:
         """Read and collectively summarize a batch of workspace text files."""
         valid_paths = self._collect_valid_files(filenames)
 
         if not valid_paths:
-            return FileResult("ERROR: No readable files were provided.", [])
+            return "ERROR: No readable files were provided.", []
 
         max_file_tokens = max(1, self.max_source_tokens // len(valid_paths))
 
         source_sections = self._build_source_sections(valid_paths, max_file_tokens)
 
         if not source_sections:
-            return FileResult("ERROR: None of the supplied files could be read.", [])
+            return "ERROR: None of the supplied files could be read.", []
 
         source_text = "\n\n".join(source_sections)
 
-        return FileResult(self._summarize(source_text), valid_paths)
+        return self._summarize(source_text), [DTO(vp.name, ResourceFlags.PROCESSED | ResourceFlags.FILE, vp, vp.suffix) for vp in valid_paths]
 
     def read_file(
         self,
         filename: str,
         offset: int = 0,
         limit: int = -1,
-    ) -> FileResult:
+    ) -> tuple[str, list[DTO]]:
         """Read lines from a workspace text file."""
         file_paths = self._collect_valid_files([filename])
 
         if not file_paths:
-            return FileResult("ERROR: The provided file is unreadable.", [])
+            return "ERROR: The provided file is unreadable.", []
+
+        file_path = file_paths[0]
 
         if offset < 0:
-            return FileResult("ERROR: Out of bounds", [filename])
+            return "ERROR: Out of bounds", [DTO(file_path.name, ResourceFlags.PROCESSED | ResourceFlags.FILE, file_path, file_path.suffix)]
 
         if limit == 0:
-            return FileResult("WARNING: A limit of 0 was used. No text to return.", [filename])
+            return "WARNING: A limit of 0 was used. No text to return.", [DTO(file_path.name, ResourceFlags.PROCESSED | ResourceFlags.FILE, file_path, file_path.suffix)]
 
         lines: list[str] = []
         token_count = 0
 
-        with file_paths[0].open("rb") as f, mmap(f.fileno(), length=0, access=ACCESS_READ) as mm:
+        with file_path.open("rb") as f, mmap(f.fileno(), length=0, access=ACCESS_READ) as mm:
             for _ in range(offset):
                 pos = mm.find(b"\n", mm.tell())
 
                 if pos == -1:
-                    return FileResult("ERROR: Out of bounds", file_paths)
+                    return "ERROR: Out of bounds", [DTO(file_path.name, ResourceFlags.PROCESSED | ResourceFlags.FILE, file_path, file_path.suffix)]
 
                 mm.seek(pos + 1)
 
@@ -442,4 +440,4 @@ End with a complete sentence and output only the paragraph."""
                 lines.append(truncated)
                 break
 
-        return FileResult("".join(lines), file_paths)
+        return "".join(lines), [DTO(file_path.name, ResourceFlags.PROCESSED | ResourceFlags.FILE, file_path, file_path.suffix)]

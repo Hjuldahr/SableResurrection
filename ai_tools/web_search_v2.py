@@ -1,31 +1,22 @@
-import re
-from typing import Any, Iterator, NamedTuple
+from typing import Any, Iterator
 from ddgs.ddgs import DDGS
 from llama_cpp import Llama
 import trafilatura
 from trafilatura.xml import xmltotxt
 
-class SearchResult(NamedTuple):
-    text: str
-    title: str
-    urls: list[str]
+from ai_tools.dto import DTO, ResourceFlags
 
 def _format_text_result(result: dict[str, Any]) -> str:
     return (f'- title: {result["title"]}, url: {result["href"]}, preview: {result.get("body", "No text found")}')
 
-def search_text(
-    query: str,
-    *,
-    max_results: int = 10
-) -> SearchResult:
+def search_text(query: str, *, max_results: int = 10) -> tuple[str, list[DTO]]:
     """Search the web for relevant pages."""
     with DDGS() as ddgs:
         results = ddgs.text(query, region="us-en", safesearch="off", timelimit="y", max_results=max_results, backend="auto")
 
-    return SearchResult(
-        '\n'.join(_format_text_result(result) for result in results),
-        ', '.join([result["title"] for result in results]),
-        [result["href"] for result in results],
+    return (
+        ', '.join(_format_text_result(res) for res in results), 
+        [DTO(res["title"], ResourceFlags.BROWSED | ResourceFlags.WEB, res["href"], "text") for res in results]
     )
 
 def _format_news_result(result: dict[str, Any]) -> str:
@@ -33,19 +24,14 @@ def _format_news_result(result: dict[str, Any]) -> str:
         f'- title: {result["title"]}, url: {result["url"]}, date: {result["date"]}, source: {result["source"]}, preview: {result.get("body", "No text found")}'
     )
 
-def search_news(
-    query: str,
-    *,
-    max_results: int = 10
-) -> SearchResult:
+def search_news(query: str, *, max_results: int = 10) -> tuple[str, list[DTO]]:
     """Search the web for relevant news articles."""
     with DDGS() as ddgs:
         results = ddgs.news(query, region="ca-en", safesearch="off", timelimit="m", max_results=max_results, backend="auto")
 
-    return SearchResult(
-        '\n'.join(_format_news_result(result) for result in results),
-        ', '.join([result["title"] for result in results]),
-        [result["url"] for result in results],
+    return (
+        ', '.join(_format_news_result(res) for res in results), 
+        [DTO(res["title"], ResourceFlags.BROWSED | ResourceFlags.WEB, res["url"], "news") for res in results]
     )
 
 def _format_books_result(result: dict[str, Any]) -> str:
@@ -53,19 +39,14 @@ def _format_books_result(result: dict[str, Any]) -> str:
         f'- title: {result["title"]}, url: {result["url"]}, author: {result["author"]}, publisher: {result["publisher"]}, info: {result["info"]}'
     )
 
-def search_books(
-    query: str,
-    *,
-    max_results: int = 10
-) -> SearchResult:
+def search_books(query: str, *, max_results: int = 10) -> tuple[str, list[DTO]]:
     """Search the web for relevant uploaded literature."""
     with DDGS() as ddgs:
         results = ddgs.books(query, max_results=max_results, backend="auto")
 
-    return SearchResult(
-        '\n'.join(_format_books_result(result) for result in results),
-        ', '.join([result["title"] for result in results]),
-        [result["url"] for result in results],
+    return (
+        ', '.join(_format_books_result(res) for res in results), 
+        [DTO(res["title"], ResourceFlags.BROWSED | ResourceFlags.WEB, res["url"], "books") for res in results]
     )
 
 class PageSummarizer:
@@ -122,7 +103,7 @@ End with a complete sentence and output only the paragraph."""
             start = end
 
     @classmethod
-    def _fetch(cls, url: str) -> tuple[str | None, str | None]:
+    def _fetch(cls, url: str) -> tuple[str, str | None]:
         """Download and extract the page title and main text."""
         downloaded = trafilatura.fetch_url(url)
 
@@ -145,13 +126,9 @@ End with a complete sentence and output only the paragraph."""
         )
 
         if doc is None:
-            return None, None
+            return f"Document not found at {url}", None
 
         text = xmltotxt(doc.body, include_formatting=True)
-
-        if not text:
-            return None, None
-
         return doc.title or "Title not found", text
 
     def _summarize(self, query: str, source_text: str) -> str: 
@@ -202,33 +179,19 @@ End with a complete sentence and output only the paragraph."""
 
         return text[:char_count]
 
-    def summarize_page(self, query: str, url: str) -> SearchResult:
+    def summarize_page(self, query: str, url: str) -> tuple[str, list[DTO]]:
         """Fetch and summarize a specified webpage in response to a query."""
         title, text = self._fetch(url)
 
         if not text:
-            return SearchResult("No readable information was found.", title, [url])
+            return (
+                "No readable information was found.", 
+                [DTO(title, ResourceFlags.PROCESSED | ResourceFlags.WEB, url)]
+            )
 
         text = self._truncate(text)
 
-        return SearchResult(self._summarize(query, text), title, [url])
-
-if __name__ == '__main__': # only run test when called directly
-    llm = Llama(
-        "C:\\Users\\robert\\Documents\\VS Code Files\\SABLE-Revamp\\llm\\gemma-4-E2B-it-Q4_K_M.gguf",
-        n_ctx=16_384, 
-        n_threads=4,
-        n_gpu_layers=-1, 
-        n_batch=512,
-        n_ubatch=256,
-        flash_attn=True,
-        verbose=False
-    ) 
-
-    result = PageSummarizer(llm).summarize_page(
-        "Why was the troupe of Monty Python created?",
-        "https://en.wikipedia.org/wiki/Monty_Python",
-    )
-
-    print(result.text)
-    print(result.urls)
+        return (
+            self._summarize(query, text), 
+            [DTO(title, ResourceFlags.PROCESSED | ResourceFlags.WEB, url)]
+        )

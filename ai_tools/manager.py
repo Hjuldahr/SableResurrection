@@ -6,15 +6,16 @@ from llama_cpp import Llama
 from ai_tools.calculate import calculate
 from ai_tools.clock import clock
 from ai_tools.db import NoteKeeper
-from ai_tools.file_io import FileHandler, FileResult, browse_file_candidates, delete_files, write_file
+from ai_tools.dto import DTO
+from ai_tools.file_io import FileHandler, browse_file_candidates, delete_files, write_file
 from ai_tools.rng import Styles, randomizer
-from ai_tools.web_search_v2 import PageSummarizer, SearchResult, search_books, search_news, search_text
+from ai_tools.web_search_v2 import PageSummarizer, search_books, search_news, search_text
 
 @dataclass
 class ToolManagerReport:
     tool_calls: defaultdict[str, int] = field(default_factory=lambda: defaultdict(int))
-    resource_urls: set[tuple[str, str]] = field(default_factory=set)
-    resource_files: set[Path] = field(default_factory=set)
+    dtos: list[DTO] = field(default_factory=list)
+    messages: list[str] = field(default_factory=list)
     tool_usage: int = 0
 
 class ToolManager:
@@ -22,7 +23,7 @@ class ToolManager:
         "clock": 1,
         "calculate": 1,
         "randomizer": 1,
-        "search_text": 1,
+        "web_search": 1,
         "browse_files": 1,
 
         "read_file": 2,
@@ -107,40 +108,31 @@ class ToolManager:
         return self._note_keeper
 
     def execute(self, command: str, **options: str) -> str:
-        if command is None:
+        if not command:
             return "WARNING: no command name was provided."
 
-        if command.startswith('_'):
-            return f"WARNING: '{command}' is not a legal tool."
-
-        try:
-            method = self.__getattribute__(command)
-        except AttributeError:
+        if command not in self.TOOL_COSTS:
             return f"WARNING: '{command}' is not a defined tool."
 
-        self.report.tool_usage += self.TOOL_COSTS.get(command, 1)
+        self.report.tool_usage += self.TOOL_COSTS[command]
         self.report.tool_calls[command] += 1
 
         try:
-            result = method(**options)
+            result = self.__getattribute__(command)(**options)
         except TypeError as e:
             return f"ERROR: Invalid arguments for tool '{command}'. Details: {e}"
         except Exception:
             # If this hits, the tool needs to be hardened or schema revised to realign with the protocol
             return f"ERROR: Execution of '{command}' failed."
 
-        self._track_resources(result)
+        if isinstance(result, tuple):
+            self.report.messages.append(result[0])
+            self.report.dtos.extend(result[1])
+            return result[0]
 
-        if isinstance(result, (SearchResult, FileResult)):
-            return result.text
+        self.report.messages.append(result)
         return result
-
-    def _track_resources(self, result: str | SearchResult | FileResult) -> None:
-        if isinstance(result, SearchResult):
-            self.report.resource_urls.update(result.urls)
-        if isinstance(result, FileResult):
-            self.report.resource_files.update(result.file_paths)
-
+    
     @staticmethod
     def clock(zone: str | None = None) -> str:
         return clock(zone)
@@ -150,7 +142,7 @@ class ToolManager:
         return calculate(expression)
 
     @staticmethod
-    def search_text(query: str, mode: str = "text") -> SearchResult:
+    def web_search(query: str, mode: str = "text") -> tuple[str, list[DTO]]:
         match mode:
             case "books":
                 return search_books(query)
@@ -159,22 +151,22 @@ class ToolManager:
             case _:
                 return search_text(query)
 
-    def summarize_page(self, query: str, url: str) -> SearchResult:
+    def summarize_page(self, query: str, url: str) -> tuple[str, list[DTO]]:
         return self.page_summarizer.summarize_page(query, url)
 
-    def summarize_files(self, filenames: list[str]) -> FileResult:
+    def summarize_files(self, filenames: list[str]) -> tuple[str, list[DTO]]:
         return self.file_handler.summarize_files(filenames)
 
-    def read_file(self, filename: str, offset: int = 0, limit: int = -1) -> FileResult:
+    def read_file(self, filename: str, offset: int = 0, limit: int = -1) -> tuple[str, list[DTO]]:
         return self.file_handler.read_file(filename, offset, limit)
 
-    def write_file(self, filename: str, file_content: str = "", append: bool = True) -> FileResult:
+    def write_file(self, filename: str, file_content: str = "", append: bool = True) -> tuple[str, list[DTO]]:
         return write_file(filename, file_content, append)
 
-    def delete_files(self, filenames: list[str]) -> FileResult:
+    def delete_files(self, filenames: list[str]) -> tuple[str, list[DTO]]:
         return delete_files(filenames)
 
-    def browse_files(self, pattern: str = '*') -> FileResult:
+    def browse_files(self, pattern: str = '*') -> tuple[str, list[DTO]]:
         return browse_file_candidates(pattern)
 
     def upsert_note(self, topic: str, note: str) -> str:

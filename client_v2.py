@@ -86,7 +86,7 @@ class SableAdapter:
         report: ToolManagerReport = msg.ui_meta["tool-report"]
         
         resources = [Resource(res.name, res.suffix, str(res.resolve())) for res in report.resource_files]
-        # TODO fix back end dataflow to support this metadata 
+        # TODO fix back end dataflow to support this metadata for web results
         #resources += [Resource(res.t, res.suffix, str(res.resolve())) for res in report.resource_urls]
         
         message = MessageData(
