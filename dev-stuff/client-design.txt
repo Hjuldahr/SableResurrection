@@ -1,0 +1,37 @@
+Interface Design
+
+Top Bar
+Workspace Controls
+  - Add File
+  - Remove File
+  - Open File using System Default App
+Save Chat Button (Manually triggers Append History of model)
+Close Button (Save then Close Client)
+
+Body
+Text Log (Virtual Scrolling)
+- AI Messages
+  - Response Text
+  - Timestamp
+  - Dropdown
+    - Tokens Consumed
+    - Processed Resources (Type Icons + Names, click to open)
+    - Tool Calls
+  - Clipboard Button
+- User Messages
+  - Prompt Text
+  - Timestamp
+  - Dropdown
+    - Tokens Consumed
+    - Suggested Resources (Type Icons + Names, click to open)
+  - Clipboard Button
+  - Edit Button (Move to Prompt Field, delete prior messages)
+Is Generating Status or Switch to streaming output.
+
+Footer
+- Prompt Field
+- Add Resource Modal Button
+  - Suggest workspace file
+  - Suggest web url
+- Added Resources (click X to remove)
+- Send Button (or Updated)

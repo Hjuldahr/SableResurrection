@@ -1,28 +1,26 @@
 from __future__ import annotations
 from datetime import datetime, timezone
 import mimetypes
-from mmap import mmap
+from mmap import mmap, ACCESS_READ
 from pathlib import Path
+from typing import NamedTuple
 from llama_cpp import Llama
 
 ROOT = Path(__file__).parents[1].resolve()
 WORKSPACE_ROOT = ROOT / "file-workspace"
 GENERATED_ROOT = WORKSPACE_ROOT / "generated"
 
+class FileResult(NamedTuple):
+    text: str
+    file_paths: list[Path]
+
 def is_sanctioned_file(path: Path) -> bool:
     """Return whether path is a regular, non-symlink file inside the workspace."""
-    return (
-        not path.is_symlink()
-        and path.is_file()
-        and path.resolve().is_relative_to(WORKSPACE_ROOT)
-    )
+    return (not path.is_symlink() and path.is_file() and path.resolve().is_relative_to(WORKSPACE_ROOT))
 
 def is_generated_path(path: Path) -> bool:
     """Return whether the resolved path lies inside the generated workspace."""
-    return (
-        not path.is_symlink()
-        and path.resolve().is_relative_to(GENERATED_ROOT)
-    )
+    return (not path.is_symlink() and path.resolve().is_relative_to(GENERATED_ROOT))
 
 def format_size(size_in_bytes: int) -> str:
     """Convert a byte count to a human-readable size."""
@@ -34,10 +32,7 @@ def format_size(size_in_bytes: int) -> str:
 
     units = ("B", "KB", "MB", "GB", "TB", "PB", "EB")
 
-    exponent = min(
-        (size_in_bytes.bit_length() - 1) // 10,
-        len(units) - 1,
-    )
+    exponent = min((size_in_bytes.bit_length() - 1) // 10, len(units) - 1)
 
     value = size_in_bytes / (1024 ** exponent)
 
@@ -53,7 +48,6 @@ def utc_timestamp(timestamp: float) -> str:
         timezone.utc,
     ).isoformat()
 
-
 def file_stats(file: Path) -> tuple[str, str, str, str]:
     """Return creation, modification, access times and human-readable size."""
     stats = file.stat()
@@ -65,12 +59,13 @@ def file_stats(file: Path) -> tuple[str, str, str, str]:
         format_size(stats.st_size),
     )
 
-def browse_file_candidates(pattern: str = "*") -> str:
+def browse_file_candidates(pattern: str = "*") -> FileResult:
     """Return metadata and previews for readable files matching a workspace glob."""
     if not WORKSPACE_ROOT.exists():
-        return "WARNING: File workspace has not been initialized."
+        return FileResult("WARNING: File workspace has not been initialized.", [])
 
     data: list[str] = []
+    file_paths: list[Path] = []
 
     for file in WORKSPACE_ROOT.rglob(pattern, case_sensitive=False):
         if not is_sanctioned_file(file):
@@ -99,42 +94,34 @@ def browse_file_candidates(pattern: str = "*") -> str:
             f"preview: {preview}"
         )
 
+        file_paths.append(file)
+
     if not data:
-        return f"INFO: No files were found for the glob pattern: {pattern}."
+        return FileResult(f"INFO: No files were found for the glob pattern: {pattern}.", [])
 
-    return "\n".join(data)
-
+    return FileResult("\n".join(data), file_paths)
 
 def write_file(
     filename: str,
     file_content: str,
     *,
     append: bool = True,
-) -> str:
+) -> FileResult:
     """Write model-generated content inside the generated workspace."""
     path = GENERATED_ROOT / filename
 
     if not is_generated_path(path):
-        return "WARNING: Filepath is outside the permitted generated workspace."
+        return FileResult("WARNING: Filepath is outside the permitted generated workspace.", [])
 
-    # An empty append is a no-op, while an empty overwrite intentionally
-    # clears the file.
     if append and not file_content.strip():
-        return "INFO: No content to append."
+        return FileResult("INFO: No content to append.", [])
 
     try:
-        path.parent.mkdir(
-            parents=True,
-            exist_ok=True,
-        )
+        path.parent.mkdir(parents=True, exist_ok=True)
 
         mode = "a" if append else "w"
 
-        with path.open(
-            mode,
-            encoding="utf-8",
-            newline="\n",
-        ) as stream:
+        with path.open(mode, encoding="utf-8", newline="\n") as stream:
             stream.write(file_content)
 
     except OSError as exc:
@@ -142,17 +129,16 @@ def write_file(
 
         print(f"Failed to {action} file {filename}: {exc}")
 
-        return f"ERROR: Failed to {action} file {filename}: {exc}"
+        return FileResult(f"ERROR: Failed to {action} file {filename}: {exc}", [path])
 
     action = "appended" if append else "wrote"
 
-    return f"INFO: Successfully {action} to file {filename}"
+    return FileResult(f"INFO: Successfully {action} to file {filename}", [path])
 
-
-def delete_files(*filenames: str) -> str:
+def delete_files(filenames: list[str]) -> FileResult:
     """Delete model-generated content inside the generated workspace."""
     if not filenames:
-        return "WARNING: No file names were provided."
+        return FileResult("WARNING: No file names were provided.", [])
 
     deleted: list[str] = []
     failed: list[str] = []
@@ -162,6 +148,7 @@ def delete_files(*filenames: str) -> str:
     for filename in filenames:
         if filename in seen:
             continue
+
         seen.add(filename)
 
         path = GENERATED_ROOT / filename
@@ -177,7 +164,7 @@ def delete_files(*filenames: str) -> str:
             failed.append(filename)
 
     if len(deleted) == len(seen):
-        return "INFO: Successfully deleted all files."
+        return FileResult("INFO: Successfully deleted all files.", [])
 
     results: list[str] = []
 
@@ -190,7 +177,7 @@ def delete_files(*filenames: str) -> str:
     if invalid:
         results.append(f'invalid: {", ".join(invalid)}')
 
-    return f"RESULTS: {'; '.join(results)}"
+    return FileResult(f"RESULTS: {'; '.join(results)}", [])
 
 class FileHandler:
     def __init__(
@@ -296,7 +283,7 @@ class FileHandler:
         except OSError:
             return "ERROR: The file could not be read."
 
-    def _collect_valid_files(self, *files: str) -> list[Path]:
+    def _collect_valid_files(self, files: list[str]) -> list[Path]:
         """Resolve and validate file arguments up to the configured batch limit."""
         valid_paths: list[Path] = []
         seen: set[Path] = set()
@@ -304,8 +291,6 @@ class FileHandler:
         for file in files:
             path = self._resolve_workspace_path(file)
 
-            # Resolve only for duplicate detection. Validation itself still
-            # receives the original path so that symlink policy is preserved.
             try:
                 identity = path.resolve()
             except OSError:
@@ -366,81 +351,86 @@ End with a complete sentence and output only the paragraph."""
 
         response = self.llm.create_chat_completion(
             messages=[
-                {"role": "system", "content": "Write one informational paragraph that describes the plaintext files provided."},
-                {"role": "user", "content": text_prompt}
+                {
+                    "role": "system",
+                    "content": (
+                        "Write one informational paragraph that describes "
+                        "the plaintext files provided."
+                    ),
+                },
+                {
+                    "role": "user",
+                    "content": text_prompt,
+                },
             ],
             max_tokens=self.max_output_tokens,
-            temperature=0.3
+            temperature=0.3,
         )
 
         return response["choices"][0]["text"].strip()
 
-    def summarize_files(self, *filenames: str) -> str:
+    def summarize_files(self, filenames: list[str]) -> FileResult:
         """Read and collectively summarize a batch of workspace text files."""
-        valid_paths = self._collect_valid_files(*filenames)
+        valid_paths = self._collect_valid_files(filenames)
 
         if not valid_paths:
-            return "ERROR: No readable files were provided."
+            return FileResult("ERROR: No readable files were provided.", [])
 
-        max_file_tokens = max(
-            1,
-            self.max_source_tokens // len(valid_paths),
-        )
+        max_file_tokens = max(1, self.max_source_tokens // len(valid_paths))
 
-        source_sections = self._build_source_sections(
-            valid_paths,
-            max_file_tokens,
-        )
+        source_sections = self._build_source_sections(valid_paths, max_file_tokens)
 
         if not source_sections:
-            return "ERROR: None of the supplied files could be read."
+            return FileResult("ERROR: None of the supplied files could be read.", [])
 
         source_text = "\n\n".join(source_sections)
 
-        return self._summarize(source_text)
+        return FileResult(self._summarize(source_text), valid_paths)
 
-    def read_file(self, filename: str, offset: int = 0, limit: int = -1) -> str:
-        file_paths = self._collect_valid_files(filename)
+    def read_file(
+        self,
+        filename: str,
+        offset: int = 0,
+        limit: int = -1,
+    ) -> FileResult:
+        """Read lines from a workspace text file."""
+        file_paths = self._collect_valid_files([filename])
 
         if not file_paths:
-            return "ERROR: The provided file is unreadable."
+            return FileResult("ERROR: The provided file is unreadable.", [])
 
         if offset < 0:
-            return "ERROR: Out of bounds"
-        
+            return FileResult("ERROR: Out of bounds", [filename])
+
         if limit == 0:
-            return "WARNING: A limit of 0 was used. No text to return."
-        
+            return FileResult("WARNING: A limit of 0 was used. No text to return.", [filename])
+
         lines: list[str] = []
         token_count = 0
 
-        file_paths[0].group()
-
-        with file_paths[0].open("rb") as f, mmap(f.fileno(), length=0, access=mmap.ACCESS_READ) as mm:
-            for _ in range(offset):    
+        with file_paths[0].open("rb") as f, mmap(f.fileno(), length=0, access=ACCESS_READ) as mm:
+            for _ in range(offset):
                 pos = mm.find(b"\n", mm.tell())
 
                 if pos == -1:
-                    return "ERROR: Out of bounds"
+                    return FileResult("ERROR: Out of bounds", file_paths)
 
                 mm.seek(pos + 1)
-                
+
             while limit < 0 or len(lines) < limit:
                 line_bytes = mm.readline()
+
                 if not line_bytes:
                     break
-                
+
                 remaining = self.max_source_tokens - token_count
+
                 if remaining <= 0:
                     break
-                
-                line_tokens = self.tokenizer.tokenize(
-                    line_bytes,
-                    add_bos=False,
-                )
+
+                line_tokens = self.tokenizer.tokenize(line_bytes, add_bos=False)
 
                 if len(line_tokens) <= remaining:
-                    # Decode to string before storing
                     lines.append(line_bytes.decode("utf-8", errors="replace"))
                     token_count += len(line_tokens)
                     continue
@@ -452,4 +442,4 @@ End with a complete sentence and output only the paragraph."""
                 lines.append(truncated)
                 break
 
-        return "".join(lines)
+        return FileResult("".join(lines), file_paths)

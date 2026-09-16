@@ -27,6 +27,6 @@ hf download hf://bartowski/Meta-Llama-3.1-8B-Instruct-GGUF/Meta-Llama-3.1-8B-Ins
 :: will swap to bartowski if it encounters errors with my GPU version
 hf download unsloth/gemma-4-E2B-it-GGUF gemma-4-E2B-it-Q4_K_M.gguf --local-dir ".\llm"
 :: Remove Hugging Face download metadata/cache from the deployment
-rmdir /s /q ".\llm\.cache" 2>nul
+rmdir /s /q ".\llm\.cache" 2>nul\
 
 endlocal

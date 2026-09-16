@@ -1,27 +1,32 @@
 import re
 from typing import Any, Iterator, NamedTuple
-from urllib.parse import urljoin
 from ddgs.ddgs import DDGS
 from llama_cpp import Llama
 import trafilatura
+from trafilatura.xml import xmltotxt
+
+class SearchResult(NamedTuple):
+    text: str
+    title: str
+    urls: list[str]
 
 def _format_text_result(result: dict[str, Any]) -> str:
-    return (
-        f'- title: {result["title"]}, url: {result["href"]}, preview: {result.get("body", "No text found")}'
-    )
+    return (f'- title: {result["title"]}, url: {result["href"]}, preview: {result.get("body", "No text found")}')
 
 def search_text(
-    query: str, 
-    *, 
+    query: str,
+    *,
     max_results: int = 10
-) -> str:
+) -> SearchResult:
     """Search the web for relevant pages."""
     with DDGS() as ddgs:
-        results = ddgs.text(
-            query, region="us-en", safesearch="off", timelimit="y", max_results=max_results, backend="auto"
-        )
-        
-    return '\n'.join(_format_text_result(result) for result in results)
+        results = ddgs.text(query, region="us-en", safesearch="off", timelimit="y", max_results=max_results, backend="auto")
+
+    return SearchResult(
+        '\n'.join(_format_text_result(result) for result in results),
+        ', '.join([result["title"] for result in results]),
+        [result["href"] for result in results],
+    )
 
 def _format_news_result(result: dict[str, Any]) -> str:
     return (
@@ -29,17 +34,19 @@ def _format_news_result(result: dict[str, Any]) -> str:
     )
 
 def search_news(
-    query: str, 
-    *, 
+    query: str,
+    *,
     max_results: int = 10
-) -> str:
+) -> SearchResult:
     """Search the web for relevant news articles."""
     with DDGS() as ddgs:
-        results = ddgs.news(
-            query, region="ca-en", safesearch="off", timelimit="m", max_results=max_results, backend="auto"
-        )
-        
-    return '\n'.join(_format_news_result(result) for result in results)
+        results = ddgs.news(query, region="ca-en", safesearch="off", timelimit="m", max_results=max_results, backend="auto")
+
+    return SearchResult(
+        '\n'.join(_format_news_result(result) for result in results),
+        ', '.join([result["title"] for result in results]),
+        [result["url"] for result in results],
+    )
 
 def _format_books_result(result: dict[str, Any]) -> str:
     return (
@@ -47,33 +54,31 @@ def _format_books_result(result: dict[str, Any]) -> str:
     )
 
 def search_books(
-    query: str, 
-    *, 
+    query: str,
+    *,
     max_results: int = 10
-) -> str:
+) -> SearchResult:
     """Search the web for relevant uploaded literature."""
     with DDGS() as ddgs:
-        results = ddgs.books(
-            query, max_results=max_results, backend="auto"
-        )
-        
-    return '\n'.join(_format_books_result(result) for result in results)
+        results = ddgs.books(query, max_results=max_results, backend="auto")
 
-class ImageData(NamedTuple):
-    alt_text: str
-    url: str
-    title: str
+    return SearchResult(
+        '\n'.join(_format_books_result(result) for result in results),
+        ', '.join([result["title"] for result in results]),
+        [result["url"] for result in results],
+    )
 
 class PageSummarizer:
-    USER_AGENT = (
-        "Mozilla/5.0 "
-        "(Windows NT 10.0; Win64; x64) "
-        "AppleWebKit/537.36 "
-        "(KHTML, like Gecko) "
-        "Chrome/131.0 Safari/537.36"
-    )
-    
-    LINK_REGEX = re.compile(r'(?<!!)\[([^\]]+)\]\(([^ \)]+)(?:\s+[\'\"]([^\'\"]+)[\'\"])?\)')
+    INSTRUCTIONS = """Write one informational paragraph that directly answers the query using the information provided.
+RULES:
+Do not repeat or describe the query or these rules. 
+Do not use outside knowledge or combine separate facts into an unsupported conclusion. 
+Do not substitute a broader or different geographic, temporal, or categorical scope for the one asked about. 
+Do not treat a date as answering the query unless it is explicitly associated with the queried event. 
+Do not add unrelated facts, generic conclusions, headings, bullets, labels, meta-commentary, or quotation marks. 
+If an answer is not clearly established or is contradictory, state that it is uncertain. 
+Answer the query question first, then include auxiliary context as needed to address uncertainties within the source. 
+End with a complete sentence and output only the paragraph."""
     
     def __init__(
         self,
@@ -117,41 +122,54 @@ class PageSummarizer:
             start = end
 
     @classmethod
-    def _fetch(cls, url: str) -> str | None:
-        """Download and extract the main text from a webpage."""
+    def _fetch(cls, url: str) -> tuple[str | None, str | None]:
+        """Download and extract the page title and main text."""
         downloaded = trafilatura.fetch_url(url)
+
         if not downloaded:
-            return None
-        
-        text = trafilatura.extract(
+            return "Webpage not found", None
+
+        doc = trafilatura.bare_extraction(
             downloaded,
-            output_format='markdown',
             with_metadata=True,
-            include_links=True,
+            include_links=False,
             include_tables=True,
             favor_precision=True,
             include_comments=False,
+            include_formatting=True,
             deduplicate=True,
-            date_extraction_params={'original_date': True, 'outputformat': "%Y-%m-%d"}
+            date_extraction_params={
+                "original_date": True,
+                "outputformat": "%Y-%m-%d",
+            }
         )
-        
-        if text and url:
-            def make_absolute(match):
-                anchor, href, title = match.group(1), match.group(2), match.group(3)
-                absolute_url = urljoin(url, href)
-                clean_title = f' "{title.strip()}"' if title and title.strip() else ''
-                return f"[{anchor}]({absolute_url}{clean_title})"
-            
-            text = cls.LINK_REGEX.sub(make_absolute, text)
-        
-        return text
 
-    def _truncate(
-        self,
-        text: str
-    ) -> str:
+        if doc is None:
+            return None, None
+
+        text = xmltotxt(doc.body, include_formatting=True)
+
+        if not text:
+            return None, None
+
+        return doc.title or "Title not found", text
+
+    def _summarize(self, query: str, source_text: str) -> str: 
+        summary_prompt = f"""QUERY: {query} 
+        
+        INFORMATION: {source_text}""" 
+        
+        response = self.llm.create_chat_completion(
+            messages=[ 
+                { "role": "system", "content": self.INSTRUCTIONS}, 
+                { "role": "user", "content": summary_prompt}, 
+            ], max_tokens=self.max_output_tokens, temperature=0.3) 
+        
+        return response["choices"][0]["message"]["content"].strip()
+
+    def _truncate(self, text: str) -> str:
         """Truncate text to at most max_tokens, preferring whole lines."""
-        if self.max_source_tokens <= 0 or not text:
+        if not text:
             return ""
 
         token_count = 0
@@ -167,10 +185,7 @@ class PageSummarizer:
             if remaining <= 0:
                 break
 
-            line_tokens = self.llm.tokenize(
-                line.encode("utf-8"),
-                add_bos=False,
-            )
+            line_tokens = self.llm.tokenize(line.encode("utf-8"), add_bos=False)
 
             line_token_count = len(line_tokens)
 
@@ -181,53 +196,22 @@ class PageSummarizer:
 
             truncated = self.llm.detokenize(
                 line_tokens[:remaining],
-            ).decode(
-                "utf-8",
-                errors="replace",
-            )
+            ).decode("utf-8", errors="replace")
 
             return text[:char_count] + truncated
 
         return text[:char_count]
 
-    def _summarize(self, query: str, source_text: str) -> str:
-        text_prompt = f"""QUERY: 
-{query}
-
-INFORMATION:
-{source_text}
-
-RULES:
-Do not repeat or describe the query or these rules.
-Do not use outside knowledge or combine separate facts into an unsupported conclusion.
-Do not substitute a broader or different geographic, temporal, or categorical scope for the one asked about.
-Do not treat a date as answering the query unless it is explicitly associated with the queried event.
-Do not add unrelated facts, generic conclusions, headings, bullets, labels, meta-commentary, or quotation marks.
-If an answer is not clearly established or is contradictory, state that it is uncertain.
-Answer the query question first, then include auxiliary context as needed to address uncertainties within the source.
-End with a complete sentence and output only the paragraph."""
-
-        response = self.llm.create_chat_completion(
-            messages=[
-                {"role": "system", "content": "Write one informational paragraph that directly answers the query using the information provided."},
-                {"role": "user", "content": text_prompt}
-            ],
-            max_tokens=self.max_output_tokens,
-            temperature=0.3,
-        )
-
-        return response["choices"][0]["message"]["content"].strip()
-
-    def summarize_page(self, query: str, url: str) -> str:
+    def summarize_page(self, query: str, url: str) -> SearchResult:
         """Fetch and summarize a specified webpage in response to a query."""
-        text = self._fetch(url)
+        title, text = self._fetch(url)
 
         if not text:
-            return "No readable information was found."
+            return SearchResult("No readable information was found.", title, [url])
 
         text = self._truncate(text)
 
-        return self._summarize(query, text)
+        return SearchResult(self._summarize(query, text), title, [url])
 
 if __name__ == '__main__': # only run test when called directly
     llm = Llama(
@@ -241,6 +225,10 @@ if __name__ == '__main__': # only run test when called directly
         verbose=False
     ) 
 
-    print(PageSummarizer(llm).summarize_page('Why was the troupe of Monty Python created?', 'https://en.wikipedia.org/wiki/Monty_Python'))
+    result = PageSummarizer(llm).summarize_page(
+        "Why was the troupe of Monty Python created?",
+        "https://en.wikipedia.org/wiki/Monty_Python",
+    )
 
-    llm.close()
+    print(result.text)
+    print(result.urls)
