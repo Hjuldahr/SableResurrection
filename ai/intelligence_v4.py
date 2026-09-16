@@ -37,61 +37,71 @@ class Role(Enum):
         return cls._ordinal_map.get(ordinal)
 
 class Message:
-    __slots__ = ('uid', 'dt', 'role', 'content', 'ntokens', 'chat_meta', 'ui_meta')
+    __slots__ = ('uid', 'dt', 'role', 'content', 'content_bytes', 'ntokens', 'chat_meta', 'ui_meta')
     
-    FMT = struct.Struct('<BHH')
+    NAMESPACE = uuid.UUID('SABLEII')
+    FMT = struct.Struct('<H7B2H')
     
     def __init__(
         self, 
-        role: Role, 
-        content: str = "", 
-        ntokens: int = 0, 
         dt: datetime | None = None,
+        role: Role = Role.SYSTEM, 
+        content: str | None = None, 
+        content_bytes: bytes | None = None,
+        ntokens: int = 0, 
+        *, 
         chat_meta: dict[str, Any] | None = None,
-        ui_meta: dict[str, Any] | None = None,
-        uid: uuid.UUID | None = None
+        ui_meta: dict[str, Any] | None = None
     ):
-        self.uid = uid if uid is not None else uuid.uuid4()
         self.dt = dt if dt is not None else datetime.now(timezone.utc)
+        self.uid = uuid.uuid5(self.NAMESPACE, self.dt.strftime("%Y%m%d%H%M%S%.3f"))
+        
         self.role = role
-        self.content = content
+        
+        self.content = content if content is not None else content_bytes.decode('utf-8', 'replace')
+        self.content_bytes = content_bytes if content_bytes is not None else content.encode('utf-8', 'replace')
+        
         self.ntokens = ntokens
+        
         self.chat_meta = {} if chat_meta is None else chat_meta
         self.ui_meta = {} if ui_meta is None else ui_meta
     
     def pack(self) -> bytes:
-        body = self.content.encode('utf-8', 'replace')
-        return self.uid.bytes_le + self.FMT.pack(int(self.role), self.ntokens, len(body)) + body
+        dt = self.dt
+        return self.FMT.pack(
+            dt.year, dt.month, dt.day, dt.hour, dt.minute, dt.second, dt.microsecond // 1000,
+            int(self.role), self.ntokens, len(self.content_bytes)
+        ) + self.content_bytes
 
+    @property
     def byte_count(self) -> int:
-        return self.FMT.size + len(self.content.encode(encoding='utf-8', errors='replace')) + 16
+        return self.FMT.size + len(self.content_bytes)
 
     @classmethod
     def unpack(cls, view: memoryview, offset: int = 0) -> tuple[Message, int]:
-        if offset + cls.FMT.size + 16 > len(view):
+        if offset + cls.FMT.size > len(view):
             raise ValueError("Truncated message header")
         
-        uid = uuid.UUID(bytes_le=view[offset:offset + 16].tobytes())
-        offset += 16
-        
-        role_ordinal, ntokens, content_nbytes = cls.FMT.unpack_from(view, offset)
+        year, month, day, hour, minute, second, microsecond, role_ordinal, ntokens, content_nbytes = cls.FMT.unpack_from(view, offset)
         offset += cls.FMT.size
         
         if offset + content_nbytes > len(view):
             raise ValueError("Truncated message content")
         
+        dt = datetime(year, month, day, hour, minute, second, microsecond, timezone.utc)
+        
         role = Role.from_ordinal(role_ordinal)
         
-        content = str(view[offset:offset + content_nbytes], encoding='utf-8', errors='replace')
+        content_bytes = view[offset:offset + content_nbytes].tobytes()
         offset += content_nbytes
         
-        return Message(uid=uid, role=role, ntokens=ntokens, content=content), offset
+        return Message(dt, role, None, content_bytes, ntokens), offset
 
     def to_msg_obj(self) -> dict[str, Any]:
         return {
+            **self.chat_meta,
             'role': self.role.value,
             'content': self.content,
-            **self.chat_meta
         }
 
 class Sable:
