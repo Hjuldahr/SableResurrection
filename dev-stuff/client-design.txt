@@ -1,9 +1,9 @@
 Interface Design
 
 Top Bar
-Workspace Controls
-  - Add File
-  - Remove File
+Workspace Controls (allowing editting of both user provided files and ai generated files)
+  - Add File (shutil copy to workspace)
+  - Remove File (Delete from workspace)
   - Open File using System Default App
 Save Chat Button (Manually triggers Append History of model)
 Close Button (Save then Close Client)
@@ -16,6 +16,7 @@ Text Log (Virtual Scrolling)
   - Dropdown
     - Tokens Consumed
     - Processed Resources (Type Icons + Names, click to open)
+    - Browsed Resources (Type Icons + Names, click to open)
     - Tool Calls
   - Clipboard Button
 - User Messages
@@ -30,8 +31,19 @@ Is Generating Status or Switch to streaming output.
 
 Footer
 - Prompt Field
-- Add Resource Modal Button
-  - Suggest workspace file
-  - Suggest web url
+- Add Resource Modal Button ((+) Drop Down of Buttons on Click)
+  - Suggest workspace file (Modal showing list of workspace files searched recursive)
+  - Suggest web url (textfield, possibly with web driven prevalidation)
 - Added Resources (click X to remove)
 - Send Button (or Updated)
+
+IMPORTANT
+PyQT6
+Adapter layer for connection AI client to GUI
+Graceful shutdown hook for both pressing close and the terminal being forcibly closed
+Suggest =/= Use. It means (Hey AI, X, Y, Z is something I think is interesting and/or relevant to my message)
+Processed === Actually utilized by the AI
+Browsed === Discovered or peeked at by the AI but not actually utilized
+A resource can be suggested but unprocessed and a resource can unsuggested but processed.
+The vector notes DB is a special case since its a local resource but needs a dedicated client adapter to view as a user
+The AI can view all workspace files, but is only allowed to automatically created and delete inside the generated subfolder via backend logic
